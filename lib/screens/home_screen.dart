@@ -1,5 +1,6 @@
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/models/user_model.dart';
+import 'package:anamel_pos/screens/products_screen.dart';
 import 'package:anamel_pos/screens/sales_screen.dart';
 import 'package:anamel_pos/screens/settings_screen.dart';
 import 'package:anamel_pos/widgets/home/home_sider.dart';
@@ -41,7 +42,7 @@ class _POSHomeState extends State<POSHome> {
     }
   }
 
-  double get total => cart.fold(0, (sum, p) => sum + p.price);
+  double get total => cart.fold(0, (sum, p) => sum + p.salePrice);
 
   void addToCart(Product product) {
     setState(() => cart.add(product));
@@ -67,10 +68,7 @@ class _POSHomeState extends State<POSHome> {
     // للمدير: يمكن الوصول لكافة الصفحات
     switch (selectedNav) {
       case 1:
-        return const PlaceholderScreen(
-          title: 'المنتجات',
-          icon: Icons.inventory_2_outlined,
-        );
+        return const ProductsScreen();
       case 2:
         return const PlaceholderScreen(
           title: 'العملاء',
@@ -118,7 +116,8 @@ class _POSHomeState extends State<POSHome> {
                 if (_currentUser.isSeller && i != 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('صلاحية البائع محصورة في شاشة المبيعات فقط'),
+                      content:
+                          Text('صلاحية البائع محصورة في شاشة المبيعات فقط'),
                       duration: Duration(seconds: 2),
                     ),
                   );

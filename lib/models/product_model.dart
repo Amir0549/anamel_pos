@@ -1,29 +1,124 @@
 import 'package:flutter/material.dart';
 
+/// المنتج الرئيسي
+///
+/// مثال:
+/// بدلة قطنية
+/// ├── 1-2 سنة
+/// │   ├── أبيض: 3
+/// │   ├── وردي: 2
+/// │   └── أزرق: 4
+/// ├── 2-4 سنوات
+/// │   ├── أبيض: 5
+/// │   ├── وردي: 3
+/// │   └── أزرق: 2
+/// └── 4-6 سنوات
+///     ├── أبيض: 1
+///     ├── وردي: 0
+///     └── أزرق: 3
 class Product {
+  final int id;
   final String name;
-  final String category;
-  final String size;
-  final double price;
-  final int stock;
-  final IconData icon;
+  final List<int> categoryIDs;
 
-  const Product(
-      this.name, this.category, this.size, this.price, this.stock, this.icon);
+  final String image1;
+  final String image2;
+  final String image3;
+  final String image4;
+
+  /// كل عمر يعتبر Variant مستقلاً
+  final List<ProductVariant> variants;
+
+  const Product({
+    required this.id,
+    required this.name,
+    required this.categoryIDs,
+    required this.image1,
+    required this.image2,
+    required this.image3,
+    required this.image4,
+    required this.variants,
+  });
+
+  /// إجمالي مخزون المنتج بكل الأعمار والألوان
+  int get totalStock {
+    return variants.fold(
+      0,
+      (total, variant) => total + variant.totalStock,
+    );
+  }
+
+  /// سعر البيع المبدئي (أدنى سعر بيع بين الأعمار/المقاسات أو 0)
+  double get salePrice {
+    if (variants.isEmpty) return 0.0;
+    return variants.map((v) => v.salePrice).reduce((a, b) => a < b ? a : b);
+  }
+
+  /// مسمى بديل لتفادي أخطاء التسمية
+  double get saleprice => salePrice;
+  double get totalPrice => salePrice;
+
+  /// قائمة المقاسات / الأعمار المتوفرة
+  List<String> get size => variants.map((v) => v.age).toList();
 }
 
-const products = [
-  Product(
-      'بدلة قطنية', 'مواليد', '0-3 أشهر', 2500, 15, Icons.child_care_rounded),
-  Product(
-      'فستان بناتي', 'فساتين', '3-4 سنوات', 2800, 12, Icons.checkroom_rounded),
-  Product('تيشيرت أطفال', 'ملابس يومية', '2-3 سنوات', 1800, 29,
-      Icons.dry_cleaning_rounded),
-  Product('جاكيت خفيف', 'جاكيتات', '3-6 سنوات', 3200, 8, Icons.ac_unit_rounded),
-  Product(
-      'سالوبيت جينز', 'سالوبيت', '2-4 سنوات', 2900, 10, Icons.style_rounded),
-  Product('طقم مواليد', 'مواليد', '0-6 أشهر', 3500, 7, Icons.toys_rounded),
-  Product('بلوزة وردية', 'بلوزات', '1-2 سنة', 2100, 16,
-      Icons.favorite_border_rounded),
-  Product('بنطال أطفال', 'بناطيل', '3-5 سنوات', 2300, 19, Icons.layers_rounded),
-];
+/// تفاصيل المنتج حسب العمر
+///
+/// السعر مرتبط بالعمر وليس باللون.
+class ProductVariant {
+  final int id;
+
+  /// مثال: 1-2 سنة / 2-4 سنوات / 4-6 سنوات
+  final String age;
+
+  final double salePrice;
+  final double purchasePrice;
+
+  /// الألوان والمخزون الخاص بهذا العمر
+  final List<ColorStock> colors;
+
+  const ProductVariant({
+    required this.id,
+    required this.age,
+    required this.salePrice,
+    required this.purchasePrice,
+    required this.colors,
+  });
+
+  /// إجمالي مخزون هذا العمر بكل ألوانه
+  int get totalStock {
+    return colors.fold(
+      0,
+      (total, color) => total + color.stock,
+    );
+  }
+}
+
+/// مخزون لون معين داخل عمر معين
+class ColorStock {
+  final int id;
+
+  /// اسم اللون الذي سيظهر للمستخدم
+  /// مثال: أبيض، وردي، أزرق
+  final String colorName;
+
+  /// قيمة اللون بصيغة ARGB
+  ///
+  /// مثال:
+  /// 0xFFFFFFFF = أبيض
+  /// 0xFFFFC0CB = وردي
+  final int colorValue;
+
+  /// الكمية الموجودة من هذا اللون لهذا العمر
+  final int stock;
+
+  const ColorStock({
+    required this.id,
+    required this.colorName,
+    required this.colorValue,
+    required this.stock,
+  });
+
+  /// تحويل القيمة المخزنة إلى Color لواجهة Flutter
+  Color get color => Color(colorValue);
+}

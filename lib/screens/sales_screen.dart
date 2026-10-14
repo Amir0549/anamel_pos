@@ -1,15 +1,17 @@
 import 'package:anamel_pos/models/product_model.dart';
+import 'package:anamel_pos/services/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
 
-class SalesScreen extends StatelessWidget {
+class SalesScreen extends StatefulWidget {
   final List<Product> cart;
   final double total;
   final String selectedCategory;
   final ValueChanged<String> onCategory;
   final ValueChanged<Product> onAdd;
   final ValueChanged<int> onRemove;
+  final List<Product>? products;
 
   const SalesScreen({
     super.key,
@@ -19,7 +21,80 @@ class SalesScreen extends StatelessWidget {
     required this.onCategory,
     required this.onAdd,
     required this.onRemove,
+    this.products,
   });
+
+  @override
+  State<SalesScreen> createState() => _SalesScreenState();
+}
+
+class _SalesScreenState extends State<SalesScreen> {
+  final ProductDao _productDao = ProductDao();
+  List<Product> _products = [];
+  List<String> _categories = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initData();
+  }
+
+  @override
+  void didUpdateWidget(covariant SalesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedCategory != widget.selectedCategory) {
+      _loadProducts();
+    }
+  }
+
+  Future<void> _initData() async {
+    setState(() => _isLoading = true);
+    try {
+      await _productDao.seedInitialDataIfEmpty();
+      final catRows = await _productDao.getCategories();
+      if (mounted && catRows.isNotEmpty) {
+        setState(() {
+          _categories = [
+            'الكل',
+            ...catRows.map((c) => c['name'] as String),
+          ];
+        });
+      }
+    } catch (_) {}
+    await _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    if (widget.products != null) {
+      if (mounted) {
+        setState(() {
+          _products = widget.products!;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final prods =
+          await _productDao.getByCategoryName(widget.selectedCategory);
+      if (mounted) {
+        setState(() {
+          _products = prods;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _products = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +105,55 @@ class SalesScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _CategoryBar(selected: selectedCategory, onSelect: onCategory),
+              _CategoryBar(
+                selected: widget.selectedCategory,
+                onSelect: widget.onCategory,
+                categories: _categories,
+              ),
               const SizedBox(height: 15),
               Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 205,
-                    mainAxisExtent: 220,
-                    crossAxisSpacing: 13,
-                    mainAxisSpacing: 13,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (_, i) => ProductCard(
-                    product: products[i],
-                    onTap: () => onAdd(products[i]),
-                  ),
-                ),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AnamelColors.sageDark,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : _products.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.inventory_2_outlined,
+                                  size: 46,
+                                  color: AnamelColors.sand,
+                                ),
+                                SizedBox(height: 12),
+                                Text(
+                                  'لا توجد منتجات في هذا التصنيف',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: AnamelColors.brown,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : GridView.builder(
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 205,
+                              mainAxisExtent: 220,
+                              crossAxisSpacing: 13,
+                              mainAxisSpacing: 13,
+                            ),
+                            itemCount: _products.length,
+                            itemBuilder: (_, i) => ProductCard(
+                              product: _products[i],
+                              onTap: () => widget.onAdd(_products[i]),
+                            ),
+                          ),
               ),
             ],
           ),
@@ -53,52 +161,84 @@ class SalesScreen extends StatelessWidget {
         const SizedBox(width: 17),
         SizedBox(
           width: 345,
-          child: _CartPanel(cart: cart, total: total, onRemove: onRemove),
+          child: _CartPanel(
+            cart: widget.cart,
+            total: widget.total,
+            onRemove: widget.onRemove,
+          ),
         ),
       ],
     );
   }
 }
 
-class _CategoryBar extends StatelessWidget {
+class _CategoryBar extends StatefulWidget {
   final String selected;
   final ValueChanged<String> onSelect;
+  final List<String> categories;
 
-  const _CategoryBar({required this.selected, required this.onSelect});
+  const _CategoryBar({
+    required this.selected,
+    required this.onSelect,
+    required this.categories,
+  });
+
+  @override
+  State<_CategoryBar> createState() => _CategoryBarState();
+}
+
+class _CategoryBarState extends State<_CategoryBar> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    const categories = [
-      'الكل',
-      'مواليد',
-      'فساتين',
-      'ملابس يومية',
-      'جاكيتات',
-      'بناطيل'
-    ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: categories.map((c) {
-          final active = c == selected;
-          return Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: ChoiceChip(
-              label: Text(c),
+    return SizedBox(
+      height: 48,
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        trackVisibility: false,
+        thickness: 3,
+        radius: const Radius.circular(10),
+        child: ListView.separated(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(bottom: 6),
+          itemCount: widget.categories.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, index) {
+            final category = widget.categories[index];
+            final active = category == widget.selected;
+
+            return ChoiceChip(
+              label: Text(category),
               selected: active,
-              onSelected: (_) => onSelect(c),
+              onSelected: (_) => widget.onSelect(category),
               selectedColor: AnamelColors.sage,
               backgroundColor: AnamelColors.white,
               side: BorderSide(
-                  color: active ? AnamelColors.sage : AnamelColors.border),
+                color: active ? AnamelColors.sage : AnamelColors.border,
+              ),
               labelStyle: TextStyle(
                 color: active ? Colors.white : AnamelColors.brown,
                 fontWeight: active ? FontWeight.w700 : FontWeight.w500,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-          );
-        }).toList(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 8,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -185,8 +325,18 @@ class _CartPanel extends StatelessWidget {
                                 color: AnamelColors.white,
                                 borderRadius: BorderRadius.circular(11),
                               ),
-                              child: Icon(p.icon,
-                                  color: AnamelColors.sageDark, size: 23),
+                              child: p.image1.isNotEmpty
+                                  ? Image.asset(
+                                      p.image1,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.checkroom_rounded,
+                                        color: AnamelColors.sageDark,
+                                        size: 23,
+                                      ),
+                                    )
+                                  : const Icon(Icons.checkroom_rounded,
+                                      color: AnamelColors.sageDark, size: 23),
                             ),
                             const SizedBox(width: 9),
                             Expanded(
@@ -197,14 +347,16 @@ class _CartPanel extends StatelessWidget {
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 12)),
-                                  Text(p.size,
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          color: AnamelColors.brown)),
+                                  Text(
+                                    p.size.isNotEmpty ? p.size.first : '',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: AnamelColors.brown),
+                                  ),
                                 ],
                               ),
                             ),
-                            Text('${p.price.toStringAsFixed(0)} دج',
+                            Text('${p.salePrice.toStringAsFixed(0)} دج',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w700, fontSize: 11)),
                             IconButton(

@@ -1,5 +1,6 @@
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/models/user_model.dart';
+import 'package:anamel_pos/screens/customers_screen.dart';
 import 'package:anamel_pos/screens/products_screen.dart';
 import 'package:anamel_pos/screens/sales_screen.dart';
 import 'package:anamel_pos/screens/settings_screen.dart';
@@ -70,10 +71,7 @@ class _POSHomeState extends State<POSHome> {
       case 1:
         return const ProductsScreen();
       case 2:
-        return const PlaceholderScreen(
-          title: 'العملاء',
-          icon: Icons.people_alt_outlined,
-        );
+        return const CustomersScreen();
       case 3:
         return const PlaceholderScreen(
           title: 'التقارير',

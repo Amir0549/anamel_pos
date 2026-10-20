@@ -524,6 +524,57 @@ class ProductDao {
     return getByCategory(catId);
   }
 
+  Future<List<Product>> getByCategories(List<String> categoryNames) async {
+    final cleaned = categoryNames.where((c) => c.trim().isNotEmpty && c != 'الكل').toSet().toList();
+    if (cleaned.isEmpty) {
+      return getAll();
+    }
+
+    final db = await _database.database;
+    final placeholders = List.filled(cleaned.length, '?').join(',');
+    final catRows = await db.rawQuery(
+      'SELECT id FROM categories WHERE name IN ($placeholders)',
+      cleaned,
+    );
+
+    // If not all requested categories exist in DB, no product can have all of them
+    if (catRows.length < cleaned.length) {
+      return [];
+    }
+
+    final catIds = catRows.map((r) => r['id'] as int).toList();
+    final idPlaceholders = List.filled(catIds.length, '?').join(',');
+
+    // Match products that contain ALL selected categories (HAVING COUNT(DISTINCT) = length)
+    final result = await db.rawQuery(
+      '''
+      SELECT p.*
+      FROM products p
+      INNER JOIN product_categories pc
+        ON pc.product_id = p.id
+      WHERE pc.category_id IN ($idPlaceholders)
+      GROUP BY p.id
+      HAVING COUNT(DISTINCT pc.category_id) = ?
+      ORDER BY p.name COLLATE NOCASE ASC
+      ''',
+      [...catIds, catIds.length],
+    );
+
+    final products = <Product>[];
+    for (final row in result) {
+      products.add(
+        await _buildProduct(
+          row,
+          db,
+        ),
+      );
+    }
+
+    return products;
+  }
+
+
+
   // ===========================================================================
   // SEED INITIAL DATA
   // ===========================================================================

@@ -86,18 +86,23 @@ class ProductCard extends StatelessWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Text(
-                    _priceText,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AnamelColors.sageDark,
+                  Expanded(
+                    child: Text(
+                      _priceText,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AnamelColors.sageDark,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: 6,
+                      vertical: 3,
                     ),
                     decoration: BoxDecoration(
                       color: AnamelColors.ivory,

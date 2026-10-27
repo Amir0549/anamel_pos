@@ -41,14 +41,16 @@ class CustomerBarcodeDialog extends StatelessWidget {
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
                 decoration: const BoxDecoration(
                   color: AnamelColors.ivory,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
-                  border: Border(bottom: BorderSide(color: AnamelColors.border)),
+                  border:
+                      Border(bottom: BorderSide(color: AnamelColors.border)),
                 ),
                 child: Row(
                   children: [
@@ -262,7 +264,8 @@ class CustomerBarcodeDialog extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton(
-                                  icon: const Icon(Icons.copy_rounded, size: 16),
+                                  icon:
+                                      const Icon(Icons.copy_rounded, size: 16),
                                   tooltip: 'نسخ رمز الباركود',
                                   color: AnamelColors.sageDark,
                                   padding: EdgeInsets.zero,
@@ -273,7 +276,8 @@ class CustomerBarcodeDialog extends StatelessWidget {
                                     );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('تم نسخ رمز الباركود إلى الحافظة'),
+                                        content: Text(
+                                            'تم نسخ رمز الباركود إلى الحافظة'),
                                         duration: Duration(seconds: 1),
                                       ),
                                     );
@@ -291,7 +295,8 @@ class CustomerBarcodeDialog extends StatelessWidget {
 
               // Action Buttons
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: const BoxDecoration(
                   color: AnamelColors.ivory,
                   borderRadius: BorderRadius.only(
@@ -315,7 +320,7 @@ class CustomerBarcodeDialog extends StatelessWidget {
                     const Spacer(),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        await BarcodePrintService.printCustomerBarcode(customer);
+                        await BarcodePrintService.printCustomer(customer);
                       },
                       icon: const Icon(Icons.print_rounded, size: 20),
                       label: const Text(

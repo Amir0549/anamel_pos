@@ -2,11 +2,11 @@ import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/models/user_model.dart';
 import 'package:anamel_pos/screens/customers_screen.dart';
 import 'package:anamel_pos/screens/products_screen.dart';
+import 'package:anamel_pos/screens/reports_accounts_screen.dart';
 import 'package:anamel_pos/screens/sales_screen.dart';
 import 'package:anamel_pos/screens/settings_screen.dart';
 import 'package:anamel_pos/widgets/home/home_sider.dart';
 import 'package:anamel_pos/widgets/home/home_topbar.dart';
-import 'package:anamel_pos/widgets/home/placeholder.dart';
 import 'package:flutter/material.dart';
 
 class POSHome extends StatefulWidget {
@@ -63,6 +63,7 @@ class _POSHomeState extends State<POSHome> {
         onCategory: (value) => setState(() => selectedCategory = value),
         onAdd: addToCart,
         onRemove: removeFromCart,
+        onSaleCompleted: () => setState(cart.clear),
       );
     }
 
@@ -73,10 +74,7 @@ class _POSHomeState extends State<POSHome> {
       case 2:
         return const CustomersScreen();
       case 3:
-        return const PlaceholderScreen(
-          title: 'التقارير',
-          icon: Icons.analytics_outlined,
-        );
+        return const ReportsAccountsScreen();
       case 4:
         return SettingsScreen(
           currentUser: _currentUser,
@@ -92,6 +90,7 @@ class _POSHomeState extends State<POSHome> {
           onCategory: (value) => setState(() => selectedCategory = value),
           onAdd: addToCart,
           onRemove: removeFromCart,
+          onSaleCompleted: () => setState(cart.clear),
         );
     }
   }

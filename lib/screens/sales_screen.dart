@@ -1,8 +1,14 @@
 import 'dart:io';
 
 import 'package:anamel_pos/models/product_model.dart';
+import 'package:anamel_pos/models/sale_model.dart';
+import 'package:anamel_pos/models/transaction_model.dart';
+import 'package:anamel_pos/services/customer_db.dart';
 import 'package:anamel_pos/services/product_dao.dart';
+import 'package:anamel_pos/services/sale_db.dart';
+import 'package:anamel_pos/services/transaction_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
+import 'package:anamel_pos/widgets/sale_confirmation_dialog.dart';
 import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +19,7 @@ class SalesScreen extends StatefulWidget {
   final ValueChanged<String> onCategory;
   final ValueChanged<Product> onAdd;
   final ValueChanged<int> onRemove;
+  final VoidCallback onSaleCompleted;
   final List<Product>? products;
 
   const SalesScreen({
@@ -23,6 +30,7 @@ class SalesScreen extends StatefulWidget {
     required this.onCategory,
     required this.onAdd,
     required this.onRemove,
+    required this.onSaleCompleted,
     this.products,
   });
 
@@ -36,6 +44,7 @@ class _SalesScreenState extends State<SalesScreen> {
   List<String> _categories = [];
   Set<String> _selectedCategories = {};
   bool _isLoading = true;
+  bool _isCompletingSale = false;
 
   @override
   void initState() {
@@ -200,6 +209,97 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
+  Future<void> _completeSale() async {
+    if (_isCompletingSale || widget.cart.isEmpty) return;
+    setState(() => _isCompletingSale = true);
+
+    try {
+      final cartItems = List<Product>.from(widget.cart);
+      final confirmation = await showDialog<SaleConfirmation>(
+        context: context,
+        builder: (_) => SaleConfirmationDialog(
+          total: cartItems.fold(0.0, (sum, product) => sum + product.salePrice),
+          itemCount: cartItems.length,
+        ),
+      );
+      if (confirmation == null || !mounted) return;
+
+      final now = DateTime.now();
+      final saleDatabase = SaleDatabase.instance;
+      final invoiceNumber = await saleDatabase.generateInvoiceNumber(now);
+      final customer = confirmation.customer;
+      final sale = SaleModel(
+        invoiceNumber: invoiceNumber,
+        accountId: confirmation.account.id!,
+        accountName: confirmation.account.name,
+        customerId: customer?.id,
+        customerName: customer?.name,
+        createdAt: now,
+        note: confirmation.note,
+        items: cartItems.map(_toSaleItem).toList(),
+      );
+      final savedSale = await saleDatabase.recordSale(sale);
+
+      await TransactionDatabase.instance.recordTransaction(
+        accountId: confirmation.account.id!,
+        type: TransactionType.sale,
+        amount: sale.totalAmount,
+        note: confirmation.note ?? 'فاتورة مبيعات $invoiceNumber',
+        invoiceId: invoiceNumber,
+        customerOrSupplierId: customer?.id,
+        saleId: savedSale.id,
+        date: now,
+      );
+
+      if (customer != null) {
+        final pointsSettings = await CustomerDatabase.getPointsSettings();
+        final earnedPoints = pointsSettings.calculatePoints(sale.totalAmount);
+        final updatedCustomer = customer.copyWith(
+          points: customer.points + earnedPoints,
+          totalSpent: customer.totalSpent + sale.totalAmount,
+          lastVisit: now,
+        );
+        final updatedRows =
+            await CustomerDatabase.updateCustomer(updatedCustomer);
+        if (updatedRows == 0) {
+          throw StateError('تعذر تحديث بيانات الزبون ${customer.name}.');
+        }
+      }
+
+      widget.onSaleCompleted();
+      await _loadProducts();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تم إتمام البيع — الفاتورة $invoiceNumber')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر إتمام البيع: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCompletingSale = false);
+    }
+  }
+
+  SaleItem _toSaleItem(Product product) {
+    final variant = product.variants.isEmpty ? null : product.variants.first;
+    final color =
+        variant == null || variant.colors.isEmpty ? null : variant.colors.first;
+    return SaleItem(
+      productId: product.id,
+      productName: product.name,
+      variantId: variant?.id ?? 0,
+      variantAge: variant?.age ?? '',
+      colorId: color?.id ?? 0,
+      colorValue: color?.colorValue ?? 0xFFFFFFFF,
+      quantity: 1,
+      unitPrice: variant?.salePrice ?? product.salePrice,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -270,6 +370,8 @@ class _SalesScreenState extends State<SalesScreen> {
             cart: widget.cart,
             total: widget.total,
             onRemove: widget.onRemove,
+            onCompleteSale: _completeSale,
+            isCompletingSale: _isCompletingSale,
           ),
         ),
       ],
@@ -1499,9 +1601,15 @@ class _CartPanel extends StatelessWidget {
   final List<Product> cart;
   final double total;
   final ValueChanged<int> onRemove;
+  final VoidCallback onCompleteSale;
+  final bool isCompletingSale;
 
   const _CartPanel(
-      {required this.cart, required this.total, required this.onRemove});
+      {required this.cart,
+      required this.total,
+      required this.onRemove,
+      required this.onCompleteSale,
+      required this.isCompletingSale});
 
   @override
   Widget build(BuildContext context) {
@@ -1685,10 +1793,22 @@ class _CartPanel extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15)),
               ),
-              onPressed: cart.isEmpty ? null : () {},
-              icon: const Icon(Icons.receipt_long_rounded),
-              label: const Text('إتمام البيع',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              onPressed:
+                  cart.isEmpty || isCompletingSale ? null : onCompleteSale,
+              icon: isCompletingSale
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.receipt_long_rounded),
+              label: Text(
+                isCompletingSale ? 'جارٍ إتمام البيع...' : 'إتمام البيع',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],

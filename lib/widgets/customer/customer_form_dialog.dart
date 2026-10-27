@@ -3,7 +3,6 @@ import 'package:anamel_pos/services/customer_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class CustomerFormDialog extends StatefulWidget {
   final Customer? customer; // null if adding new, existing if editing
@@ -25,8 +24,6 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _barcodeController;
-  late TextEditingController _pointsController;
-  late TextEditingController _totalSpentController;
 
   bool _isLoading = false;
   bool _isGeneratingBarcode = false;
@@ -41,9 +38,6 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
     _nameController = TextEditingController(text: c?.name ?? '');
     _phoneController = TextEditingController(text: c?.phone ?? '');
     _barcodeController = TextEditingController(text: c?.barcode ?? '');
-    _pointsController = TextEditingController(text: (c?.points ?? 0).toString());
-    _totalSpentController =
-        TextEditingController(text: (c?.totalSpent ?? 0.0).toStringAsFixed(1));
 
     if (!isEditing && _barcodeController.text.isEmpty) {
       _generateBarcode();
@@ -55,8 +49,6 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
     _nameController.dispose();
     _phoneController.dispose();
     _barcodeController.dispose();
-    _pointsController.dispose();
-    _totalSpentController.dispose();
     super.dispose();
   }
 
@@ -89,7 +81,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
       );
       if (taken) {
         setState(() {
-          _barcodeError = 'هذا الباركود مستخدم بالفعل لعميل آخر، يرجى تغييره أو توليد جديد';
+          _barcodeError =
+              'هذا الباركود مستخدم بالفعل لعميل آخر، يرجى تغييره أو توليد جديد';
         });
         return;
       }
@@ -104,9 +97,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
     final phone = _phoneController.text.trim().isEmpty
         ? null
         : _phoneController.text.trim();
-    final points = int.tryParse(_pointsController.text.trim()) ?? 0;
-    final totalSpent =
-        double.tryParse(_totalSpentController.text.trim()) ?? 0.0;
+    const points = 0;
+    const totalSpent = 0.0;
 
     try {
       if (isEditing) {
@@ -137,7 +129,9 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEditing ? 'تم تعديل بيانات العميل بنجاح' : 'تم إضافة العميل الجديد بنجاح',
+              isEditing
+                  ? 'تم تعديل بيانات العميل بنجاح'
+                  : 'تم إضافة العميل الجديد بنجاح',
             ),
             backgroundColor: AnamelColors.sageDark,
           ),
@@ -185,14 +179,16 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 decoration: const BoxDecoration(
                   color: AnamelColors.ivory,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
                   ),
-                  border: Border(bottom: BorderSide(color: AnamelColors.border)),
+                  border:
+                      Border(bottom: BorderSide(color: AnamelColors.border)),
                 ),
                 child: Row(
                   children: [
@@ -216,7 +212,9 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isEditing ? 'تعديل بيانات العميل' : 'إضافة عميل جديد',
+                            isEditing
+                                ? 'تعديل بيانات العميل'
+                                : 'إضافة عميل جديد',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
@@ -237,7 +235,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: AnamelColors.brown),
+                      icon: const Icon(Icons.close_rounded,
+                          color: AnamelColors.brown),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -323,7 +322,9 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                               ),
                             ),
                             TextButton.icon(
-                              onPressed: _isGeneratingBarcode ? null : _generateBarcode,
+                              onPressed: _isGeneratingBarcode
+                                  ? null
+                                  : _generateBarcode,
                               icon: _isGeneratingBarcode
                                   ? const SizedBox(
                                       width: 14,
@@ -333,7 +334,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                                         color: AnamelColors.sageDark,
                                       ),
                                     )
-                                  : const Icon(Icons.autorenew_rounded, size: 16),
+                                  : const Icon(Icons.autorenew_rounded,
+                                      size: 16),
                               label: const Text(
                                 'توليد باركود جديد',
                                 style: TextStyle(
@@ -348,7 +350,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _barcodeController,
-                          onChanged: (_) => setState(() => _barcodeError = null),
+                          onChanged: (_) =>
+                              setState(() => _barcodeError = null),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -396,8 +399,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color:
-                                            AnamelColors.brown.withValues(alpha: 0.75),
+                                        color: AnamelColors.brown
+                                            .withValues(alpha: 0.75),
                                       ),
                                     ),
                                   ],
@@ -432,79 +435,6 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
                         ],
 
                         const SizedBox(height: 18),
-
-                        // Points and Total Spent row
-                        Row(
-                          children: [
-                            // Points
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'نقاط الولاء',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AnamelColors.brown,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _pointsController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AnamelColors.brown,
-                                    ),
-                                    decoration: _inputDecoration(
-                                      hint: '0',
-                                      icon: Icons.stars_rounded,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Total Spent
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'إجمالي المشتريات (د.ل)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AnamelColors.brown,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: _totalSpentController,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                            decimal: true),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: AnamelColors.brown,
-                                    ),
-                                    decoration: _inputDecoration(
-                                      hint: '0.0',
-                                      icon: Icons.payments_outlined,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -513,7 +443,8 @@ class _CustomerFormDialogState extends State<CustomerFormDialog> {
 
               // Actions
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: const BoxDecoration(
                   color: AnamelColors.ivory,
                   borderRadius: BorderRadius.only(

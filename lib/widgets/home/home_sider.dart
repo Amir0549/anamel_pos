@@ -84,7 +84,7 @@ class HomeSidebar extends StatelessWidget {
       ('المبيعات', Icons.point_of_sale_rounded, true),
       ('المنتجات', Icons.inventory_2_outlined, currentUser.isAdmin),
       ('العملاء', Icons.people_alt_outlined, currentUser.isAdmin),
-      ('التقارير', Icons.analytics_outlined, currentUser.isAdmin),
+      ('التقارير و الحسابات', Icons.analytics_outlined, currentUser.isAdmin),
       ('الإعدادات', Icons.settings_outlined, currentUser.isAdmin),
     ];
 

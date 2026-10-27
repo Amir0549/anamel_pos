@@ -346,7 +346,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         Expanded(
           child: _buildSingleStatCard(
             title: 'إجمالي المشتريات',
-            value: '${(_stats['totalSpent'] as double).toStringAsFixed(1)} د.ل',
+            value: '${(_stats['totalSpent'] as double).toStringAsFixed(1)} دج',
             icon: Icons.account_balance_wallet_rounded,
             color: AnamelColors.brown,
           ),
@@ -500,7 +500,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.sort_rounded, size: 18, color: AnamelColors.brown),
+              const Icon(Icons.sort_rounded,
+                  size: 18, color: AnamelColors.brown),
               const SizedBox(width: 8),
               DropdownButton<String>(
                 value: _sortBy,
@@ -519,9 +520,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   }
                 },
                 items: const [
-                  DropdownMenuItem(value: 'newest', child: Text('الأحدث إضافة')),
-                  DropdownMenuItem(value: 'points', child: Text('الأكثر نقاطاً')),
-                  DropdownMenuItem(value: 'spent', child: Text('الأكثر إنفاقاً')),
+                  DropdownMenuItem(
+                      value: 'newest', child: Text('الأحدث إضافة')),
+                  DropdownMenuItem(
+                      value: 'points', child: Text('الأكثر نقاطاً')),
+                  DropdownMenuItem(
+                      value: 'spent', child: Text('الأكثر إنفاقاً')),
                   DropdownMenuItem(value: 'visit', child: Text('آخر زيارة')),
                   DropdownMenuItem(value: 'name', child: Text('الاسم أبجدياً')),
                 ],
@@ -903,7 +907,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              '${customer.totalSpent.toStringAsFixed(1)} د.ل',
+              '${customer.totalSpent.toStringAsFixed(1)} دج',
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -934,7 +938,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 IconButton(
                   tooltip: 'طباعة الباركود',
                   onPressed: () async {
-                    await BarcodePrintService.printCustomerBarcode(customer);
+                    await BarcodePrintService.printCustomer(customer);
                   },
                   icon: const Icon(
                     Icons.print_rounded,

@@ -17,6 +17,10 @@ dependencies:
   barcode_widget: ^2.0.4
   printing: ^5.15.1
   pdf: ^3.13.1
+  win32: ^6.4.0
+  ffi: ^2.2.0
+  printing_ffi: ^0.0.11
+  barcode: ^2.2.9
 
 dev_dependencies:
   flutter_test:
@@ -27,3 +31,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/fonts/

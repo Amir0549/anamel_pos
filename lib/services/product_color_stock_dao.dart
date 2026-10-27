@@ -172,6 +172,36 @@ class ProductColorStockDao {
   }
 
   // ===========================================================================
+  // DEDUCT STOCK
+  // ===========================================================================
+
+  /// خصم كمية من المخزون (مثل عند إجراء عملية بيع).
+  /// يضمن عدم نزول المخزون تحت الصفر (تصفيره إذا نفذ).
+  Future<void> deductStock(
+    int colorStockId,
+    int quantity, {
+    DatabaseExecutor? executor,
+  }) async {
+    if (quantity <= 0) return;
+    final db = executor ?? await _database.database;
+
+    await db.rawUpdate(
+      '''
+      UPDATE product_variant_colors
+      SET
+        stock = CASE WHEN stock >= ? THEN stock - ? ELSE 0 END,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      ''',
+      [
+        quantity,
+        quantity,
+        colorStockId,
+      ],
+    );
+  }
+
+  // ===========================================================================
   // GET BY ID
   // ===========================================================================
 

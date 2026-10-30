@@ -11,7 +11,7 @@ class AnamelDatabase {
   static const String _databaseName = 'anamel.db';
 
   /// يجب رفع هذا الرقم عند أي تغيير مستقبلي في بنية قاعدة البيانات.
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   Database? _database;
 
@@ -84,6 +84,7 @@ class AnamelDatabase {
       CREATE TABLE products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        barcode TEXT UNIQUE,
 
         image1 TEXT,
         image2 TEXT,
@@ -211,12 +212,18 @@ class AnamelDatabase {
     // -------------------------------------------------------------------------
     // VERSION 2
     //
-    // مثال مستقبلي:
-    //
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;');
-    // }
+    // إضافة عمود الباركود للمنتجات.
     // -------------------------------------------------------------------------
+
+    if (oldVersion < 2) {
+      try {
+        await db.execute('ALTER TABLE products ADD COLUMN barcode TEXT;');
+        await db.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);');
+      } catch (_) {
+        // في حال كان العمود أو الفهرس موجوداً مسبقاً
+      }
+    }
 
     // -------------------------------------------------------------------------
     // VERSION 3
@@ -237,6 +244,11 @@ class AnamelDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_products_name
       ON products(name);
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_products_barcode
+      ON products(barcode);
     ''');
 
     await db.execute('''

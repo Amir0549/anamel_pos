@@ -2,13 +2,13 @@ import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/screens/inventory_screen.dart';
 import 'package:anamel_pos/services/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
-import 'package:anamel_pos/widgets/product_screen/add_category_dialog.dart';
-import 'package:anamel_pos/widgets/product_screen/manage_categories_dialog.dart';
-import 'package:anamel_pos/widgets/product_screen/product_details_dialog.dart';
+import 'package:anamel_pos/widgets/dialogs/product_screen/manage_categories_dialog.dart';
+import 'package:anamel_pos/widgets/dialogs/product_screen/product_details_dialog.dart';
 import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-import '../widgets/product_screen/add_product_dialog.dart';
+import '../widgets/dialogs/product_screen/add_product_dialog.dart';
 
 class ProductsScreen extends StatefulWidget {
   final List<Product>? products;
@@ -72,16 +72,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  Future<void> _showAddCategoryDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => const AddCategoryDialog(),
-    );
-    if (result == true) {
-      _loadProducts();
-    }
-  }
-
   Future<void> _showManageCategoriesDialog() async {
     final result = await showDialog<bool>(
       context: context,
@@ -103,7 +93,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
     _loadProducts();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -181,20 +170,37 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ],
             ),
           ),
+
+          // البحث
+          Container(
+            width: 270,
+            height: 45,
+            decoration: BoxDecoration(
+              color: AnamelColors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AnamelColors.border,
+              ),
+            ),
+            child: const TextField(
+              decoration: InputDecoration(
+                hintText: 'ابحث عن منتج أو باركود...',
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  size: 20,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.only(top: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           _buildActionButton(
             label: 'المخزون',
             icon: Icons.inventory_2_outlined,
             background: AnamelColors.sand.withValues(alpha: 0.35),
             foreground: AnamelColors.brown,
             onPressed: _openInventoryScreen,
-          ),
-          const SizedBox(width: 10),
-          _buildActionButton(
-            label: 'إضافة تصنيف',
-            icon: Icons.category_rounded,
-            background: AnamelColors.ivory,
-            foreground: AnamelColors.brown,
-            onPressed: _showAddCategoryDialog,
           ),
           const SizedBox(width: 10),
           _buildActionButton(
@@ -293,7 +299,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               },
             );
           },
-        );
+        ).animate(delay: 80.ms).fadeIn().slideY(begin: 0.2);
       },
     );
   }

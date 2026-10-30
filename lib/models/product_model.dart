@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 /// المنتج الرئيسي
@@ -19,6 +21,7 @@ import 'package:flutter/material.dart';
 class Product {
   final int id;
   final String name;
+  final String barcode;
   final List<int> categoryIDs;
 
   final String image1;
@@ -32,6 +35,7 @@ class Product {
   const Product({
     required this.id,
     required this.name,
+    this.barcode = '',
     required this.categoryIDs,
     required this.image1,
     required this.image2,
@@ -60,6 +64,37 @@ class Product {
 
   /// قائمة المقاسات / الأعمار المتوفرة
   List<String> get size => variants.map((v) => v.age).toList();
+
+  /// توليد باركود تلقائي فريد للمنتج (مثال: PRD-481920)
+  static String generateBarcode() {
+    final random = Random();
+    final number = 100000 + random.nextInt(900000);
+    return 'PRD-$number';
+  }
+
+  Product copyWith({
+    int? id,
+    String? name,
+    String? barcode,
+    List<int>? categoryIDs,
+    String? image1,
+    String? image2,
+    String? image3,
+    String? image4,
+    List<ProductVariant>? variants,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      barcode: barcode ?? this.barcode,
+      categoryIDs: categoryIDs ?? this.categoryIDs,
+      image1: image1 ?? this.image1,
+      image2: image2 ?? this.image2,
+      image3: image3 ?? this.image3,
+      image4: image4 ?? this.image4,
+      variants: variants ?? this.variants,
+    );
+  }
 }
 
 /// تفاصيل المنتج حسب العمر

@@ -1,9 +1,10 @@
+import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/product_model.dart';
-import '../../services/product_dao.dart';
-import '../anamel_colors.dart';
+import '../../../models/product_model.dart';
+import '../../../services/product_dao.dart';
+import '../../anamel_colors.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -130,6 +131,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
   final _productDao = ProductDao();
 
   final _nameController = TextEditingController();
+  final _barcodeController = TextEditingController();
   final List<String> _imagePaths = [];
 
   final List<_VariantItemModel> _variants = [];
@@ -138,6 +140,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
   bool _isLoadingCategories = true;
   bool _isSaving = false;
+  bool _isGeneratingBarcode = false;
+  String? _barcodeError;
   String? _errorMessage;
 
   bool get _isEditMode => widget.initialProduct != null;
@@ -151,6 +155,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
       final p = widget.initialProduct!;
 
       _nameController.text = p.name;
+      _barcodeController.text = p.barcode;
 
       _imagePaths.clear();
 
@@ -188,8 +193,27 @@ class _AddProductDialogState extends State<AddProductDialog> {
         );
       }
     } else {
-      // وضع الإضافة: مقاس افتراضي
+      // وضع الإضافة: مقاس افتراضي وتوليد باركود تلقائي
       _addVariant(defaultAge: '1-2 سنة');
+      _generateBarcode();
+    }
+  }
+
+  Future<void> _generateBarcode() async {
+    setState(() => _isGeneratingBarcode = true);
+    try {
+      final code = await _productDao.generateUniqueBarcode();
+      if (mounted) {
+        setState(() {
+          _barcodeController.text = code;
+          _barcodeError = null;
+          _isGeneratingBarcode = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isGeneratingBarcode = false);
+      }
     }
   }
 
@@ -601,6 +625,23 @@ class _AddProductDialogState extends State<AddProductDialog> {
       _isSaving = true;
     });
 
+    final barcode = _barcodeController.text.trim();
+    if (barcode.isNotEmpty) {
+      final isTaken = await _productDao.isBarcodeTaken(
+        barcode,
+        excludeId: _isEditMode ? widget.initialProduct!.id : null,
+      );
+      if (isTaken) {
+        setState(() {
+          _barcodeError = 'هذا الباركود مستخدم بالفعل لمنتج آخر';
+          _errorMessage =
+              'الباركود "$barcode" مستخدم مسبقاً، يرجى اختيار باركود آخر أو توليده تلقائياً.';
+          _isSaving = false;
+        });
+        return;
+      }
+    }
+
     try {
       final productVariants = <ProductVariant>[];
 
@@ -633,6 +674,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
       final product = Product(
         id: _isEditMode ? widget.initialProduct!.id : 0,
         name: name,
+        barcode: barcode,
         categoryIDs: _selectedCategoryIds.toList(),
         image1: _imagePaths.isNotEmpty ? _imagePaths[0] : '',
         image2: _imagePaths.length > 1 ? _imagePaths[1] : '',
@@ -663,6 +705,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _barcodeController.dispose();
     for (final variant in _variants) {
       variant.dispose();
     }
@@ -891,6 +934,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
   // ===========================================================================
 
   Widget _buildBasicInfoSection() {
+    final currentBarcode = _barcodeController.text.trim();
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -922,6 +967,151 @@ class _AddProductDialogState extends State<AddProductDialog> {
                       hint: 'مثال: بدلة قطنية مطرزة، فستان وردي صيفي...',
                       icon: Icons.shopping_bag_outlined,
                     ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildFieldLabel('باركود المنتج (Barcode)'),
+                        InkWell(
+                          onTap: _isGeneratingBarcode ? null : _generateBarcode,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AnamelColors.sage.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _isGeneratingBarcode
+                                    ? const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AnamelColors.sageDark,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.auto_fix_high_rounded,
+                                        size: 14,
+                                        color: AnamelColors.sageDark,
+                                      ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'توليد تلقائي',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AnamelColors.sageDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _barcodeController,
+                      onChanged: (_) {
+                        if (_barcodeError != null) {
+                          setState(() => _barcodeError = null);
+                        } else {
+                          setState(() {});
+                        }
+                      },
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AnamelColors.brown,
+                        letterSpacing: 1.1,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'أدخل الباركود أو انقر على توليد تلقائي...',
+                        hintStyle: const TextStyle(
+                          color: AnamelColors.brown,
+                          fontSize: 12,
+                          letterSpacing: 0,
+                        ),
+                        errorText: _barcodeError,
+                        prefixIcon: const Icon(
+                          Icons.qr_code_2_rounded,
+                          color: AnamelColors.sageDark,
+                          size: 20,
+                        ),
+                        suffixIcon: _barcodeController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded,
+                                    size: 16, color: AnamelColors.brown),
+                                onPressed: () {
+                                  _barcodeController.clear();
+                                  setState(() => _barcodeError = null);
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: AnamelColors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(13),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(13),
+                          borderSide:
+                              const BorderSide(color: AnamelColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(13),
+                          borderSide: const BorderSide(
+                              color: AnamelColors.sageDark, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    if (currentBarcode.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AnamelColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AnamelColors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            BarcodeWidget(
+                              barcode: Barcode.code128(),
+                              data: currentBarcode,
+                              height: 38,
+                              drawText: false,
+                              color: AnamelColors.brown,
+                              errorBuilder: (_, error) => Text(
+                                'صيغة الباركود غير مدعومة للعرض: $error',
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 10),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              currentBarcode,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                                color: AnamelColors.brown,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

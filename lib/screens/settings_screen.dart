@@ -86,8 +86,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _savePointsSettings() async {
-    final pointsAwarded = int.tryParse(_pointsAwardedController.text.trim()) ?? 1;
-    final amountStep = double.tryParse(_amountStepController.text.trim()) ?? 10.0;
+    final pointsAwarded =
+        int.tryParse(_pointsAwardedController.text.trim()) ?? 1;
+    final amountStep =
+        double.tryParse(_amountStepController.text.trim()) ?? 10.0;
 
     if (pointsAwarded <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -390,6 +392,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
 
+        if (_selectedTab == 0) ...[
+          const SizedBox(width: 14),
+          ElevatedButton.icon(
+            onPressed: _openAddUserDialog,
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+            label: const Text(
+              'إضافة مستخدم جديد',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AnamelColors.sageDark,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+
+        SizedBox(width: 10),
+
         // Tabs Selector (Users vs Points)
         Container(
           padding: const EdgeInsets.all(4),
@@ -415,27 +440,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-
-        if (_selectedTab == 0) ...[
-          const SizedBox(width: 14),
-          ElevatedButton.icon(
-            onPressed: _openAddUserDialog,
-            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-            label: const Text(
-              'إضافة مستخدم جديد',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AnamelColors.sageDark,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              elevation: 0,
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -544,7 +548,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 18, vertical: 14),
                           decoration: BoxDecoration(
-                            color: isMe ? AnamelColors.ivory : AnamelColors.white,
+                            color:
+                                isMe ? AnamelColors.ivory : AnamelColors.white,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: isMe
@@ -626,7 +631,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 decoration: BoxDecoration(
                                   color: user.isAdmin
                                       ? AnamelColors.sage.withValues(alpha: 0.2)
-                                      : AnamelColors.pink.withValues(alpha: 0.35),
+                                      : AnamelColors.pink
+                                          .withValues(alpha: 0.35),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
@@ -672,8 +678,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 10),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                   ),
@@ -723,10 +728,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         int.tryParse(_pointsAwardedController.text.trim()) ?? 1;
     final double amtStep =
         double.tryParse(_amountStepController.text.trim()) ?? 10.0;
-    final int calculatedSimPoints =
-        (!_isPointsEnabled || amtStep <= 0)
-            ? 0
-            : ((testSpend / amtStep) * ptsAwarded).floor();
+    final int calculatedSimPoints = (!_isPointsEnabled || amtStep <= 0)
+        ? 0
+        : ((testSpend / amtStep) * ptsAwarded).floor();
 
     return SingleChildScrollView(
       child: Column(
@@ -736,9 +740,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: _isPointsEnabled
-                  ? AnamelColors.ivory
-                  : Colors.grey.shade50,
+              color:
+                  _isPointsEnabled ? AnamelColors.ivory : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: _isPointsEnabled
@@ -913,13 +916,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               fillColor: AnamelColors.ivory,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    const BorderSide(color: AnamelColors.border),
+                                borderSide: const BorderSide(
+                                    color: AnamelColors.border),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    const BorderSide(color: AnamelColors.border),
+                                borderSide: const BorderSide(
+                                    color: AnamelColors.border),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
@@ -971,13 +974,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               fillColor: AnamelColors.ivory,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    const BorderSide(color: AnamelColors.border),
+                                borderSide: const BorderSide(
+                                    color: AnamelColors.border),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide:
-                                    const BorderSide(color: AnamelColors.border),
+                                borderSide: const BorderSide(
+                                    color: AnamelColors.border),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),

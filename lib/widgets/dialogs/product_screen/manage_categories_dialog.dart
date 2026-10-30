@@ -1,6 +1,7 @@
 import 'package:anamel_pos/services/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ManageCategoriesDialog extends StatefulWidget {
   const ManageCategoriesDialog({super.key});
@@ -51,7 +52,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
   }
 
   Future<void> _editCategory(Map<String, dynamic> category) async {
-    final editController = TextEditingController(text: category['name'] as String);
+    final editController =
+        TextEditingController(text: category['name'] as String);
     final categoryId = category['id'] as int;
 
     final updated = await showDialog<bool>(
@@ -334,7 +336,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context, _hasChanges),
-                    icon: const Icon(Icons.close_rounded, color: AnamelColors.brown),
+                    icon: const Icon(Icons.close_rounded,
+                        color: AnamelColors.brown),
                   ),
                 ],
               ),
@@ -369,7 +372,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(13),
-                          borderSide: const BorderSide(color: AnamelColors.border),
+                          borderSide:
+                              const BorderSide(color: AnamelColors.border),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(13),
@@ -395,7 +399,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.add_rounded, color: AnamelColors.white, size: 20),
+                            Icon(Icons.add_rounded,
+                                color: AnamelColors.white, size: 20),
                             SizedBox(width: 6),
                             Text(
                               'إضافة',
@@ -435,7 +440,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                           )
                         : ListView.separated(
                             itemCount: _categories.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
                             itemBuilder: (context, index) {
                               final cat = _categories[index];
                               return Container(
@@ -446,7 +452,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                                 decoration: BoxDecoration(
                                   color: AnamelColors.ivory,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AnamelColors.border),
+                                  border:
+                                      Border.all(color: AnamelColors.border),
                                 ),
                                 child: Row(
                                   children: [
@@ -488,7 +495,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                                 ),
                               );
                             },
-                          ),
+                          ).animate(delay: 80.ms).fadeIn().slideY(begin: 0.2),
               ),
               const SizedBox(height: 14),
               Row(
@@ -501,7 +508,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       onTap: () => Navigator.pop(context, _hasChanges),
                       borderRadius: BorderRadius.circular(12),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 20, vertical: 11),
                         child: Text(
                           'إغلاق',
                           style: TextStyle(

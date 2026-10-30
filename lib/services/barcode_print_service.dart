@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:win32/win32.dart';
 
 import '../models/customer_model.dart';
+import '../models/product_model.dart';
 
 class BarcodePrintService {
   BarcodePrintService._();
@@ -35,6 +36,30 @@ class BarcodePrintService {
 
     final image = await _createLabelImage(
       customerName: customer.name,
+      barcodeValue: barcodeValue,
+    );
+
+    final bitmap = await _imageToMonoBitmap(image);
+
+    final tspl = _buildTspl(bitmap);
+
+    _sendRawToPrinter(
+      printerName: printerName,
+      data: tspl,
+    );
+  }
+
+  static Future<void> printProduct(Product product) async {
+    final barcodeValue = product.barcode.trim();
+
+    if (barcodeValue.isEmpty) {
+      throw Exception('المنتج لا يملك باركود.');
+    }
+
+    await _loadCairoFont();
+
+    final image = await _createLabelImage(
+      customerName: product.name,
       barcodeValue: barcodeValue,
     );
 

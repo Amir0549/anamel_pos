@@ -33,10 +33,12 @@ class ProductDao {
     final db = await _database.database;
 
     return db.transaction<int>((txn) async {
+      final barcodeValue = product.barcode.trim();
       final productId = await txn.insert(
         'products',
         {
           'name': product.name.trim(),
+          'barcode': barcodeValue.isEmpty ? null : barcodeValue,
           'image1': product.image1,
           'image2': product.image2,
           'image3': product.image3,
@@ -80,11 +82,13 @@ class ProductDao {
     final db = await _database.database;
 
     await db.transaction((txn) async {
+      final barcodeValue = product.barcode.trim();
       final count = await txn.rawUpdate(
         '''
         UPDATE products
         SET
           name = ?,
+          barcode = ?,
           image1 = ?,
           image2 = ?,
           image3 = ?,
@@ -94,6 +98,7 @@ class ProductDao {
         ''',
         [
           product.name.trim(),
+          barcodeValue.isEmpty ? null : barcodeValue,
           product.image1,
           product.image2,
           product.image3,
@@ -265,8 +270,8 @@ class ProductDao {
 
     final result = await db.query(
       'products',
-      where: 'name LIKE ?',
-      whereArgs: ['%$searchQuery%'],
+      where: 'name LIKE ? OR barcode LIKE ?',
+      whereArgs: ['%$searchQuery%', '%$searchQuery%'],
       orderBy: 'name COLLATE NOCASE ASC',
     );
 
@@ -282,6 +287,59 @@ class ProductDao {
     }
 
     return products;
+  }
+
+  // ===========================================================================
+  // BARCODE METHODS
+  // ===========================================================================
+
+  /// جلب منتج بواسطة الباركود
+  Future<Product?> getByBarcode(String barcode) async {
+    final trimmed = barcode.trim();
+    if (trimmed.isEmpty) return null;
+
+    final db = await _database.database;
+    final result = await db.query(
+      'products',
+      where: 'barcode = ?',
+      whereArgs: [trimmed],
+      limit: 1,
+    );
+
+    if (result.isEmpty) {
+      return null;
+    }
+
+    return _buildProduct(result.first, db);
+  }
+
+  /// التحقق مما إذا كان الباركود مستخدماً مسبقاً
+  Future<bool> isBarcodeTaken(String barcode, {int? excludeId}) async {
+    final trimmed = barcode.trim();
+    if (trimmed.isEmpty) return false;
+
+    final db = await _database.database;
+    String query = 'SELECT id FROM products WHERE barcode = ?';
+    final args = <dynamic>[trimmed];
+
+    if (excludeId != null && excludeId > 0) {
+      query += ' AND id != ?';
+      args.add(excludeId);
+    }
+
+    final result = await db.rawQuery(query, args);
+    return result.isNotEmpty;
+  }
+
+  /// توليد باركود تلقائي فريد غير مستخدم
+  Future<String> generateUniqueBarcode() async {
+    while (true) {
+      final barcode = Product.generateBarcode();
+      final taken = await isBarcodeTaken(barcode);
+      if (!taken) {
+        return barcode;
+      }
+    }
   }
 
   // ===========================================================================
@@ -381,6 +439,7 @@ class ProductDao {
     return Product(
       id: productId,
       name: productRow['name'] as String,
+      barcode: (productRow['barcode'] as String?) ?? '',
       categoryIDs: categoryIDs,
       image1: (productRow['image1'] as String?) ?? '',
       image2: (productRow['image2'] as String?) ?? '',

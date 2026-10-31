@@ -9,6 +9,7 @@ import 'package:win32/win32.dart';
 
 import '../models/customer_model.dart';
 import '../models/product_model.dart';
+import 'product_barcode_print_service.dart';
 
 class BarcodePrintService {
   BarcodePrintService._();
@@ -49,27 +50,19 @@ class BarcodePrintService {
     );
   }
 
-  static Future<void> printProduct(Product product) async {
-    final barcodeValue = product.barcode.trim();
-
-    if (barcodeValue.isEmpty) {
-      throw Exception('المنتج لا يملك باركود.');
-    }
-
-    await _loadCairoFont();
-
-    final image = await _createLabelImage(
-      customerName: product.name,
-      barcodeValue: barcodeValue,
-    );
-
-    final bitmap = await _imageToMonoBitmap(image);
-
-    final tspl = _buildTspl(bitmap);
-
-    _sendRawToPrinter(
+  /// طباعة ملصق المنتج باستخدام التصميم المخصص للمنتجات (ProductBarcodePrintService)
+  static Future<void> printProduct(
+    Product product, {
+    ProductVariant? variant,
+    double? customPrice,
+    int copies = 1,
+  }) async {
+    await ProductBarcodePrintService.printProduct(
+      product,
+      variant: variant,
+      customPrice: customPrice,
+      copies: copies,
       printerName: printerName,
-      data: tspl,
     );
   }
 
@@ -84,6 +77,9 @@ class BarcodePrintService {
 
     loader.addFont(
       rootBundle.load('assets/fonts/Cairo-Regular.ttf'),
+    );
+    loader.addFont(
+      rootBundle.load('assets/fonts/Cairo-Bold.ttf'),
     );
 
     await loader.load();

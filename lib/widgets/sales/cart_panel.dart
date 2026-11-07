@@ -55,6 +55,16 @@ class _CartPanelState extends State<CartPanel> {
   }
 
   @override
+  void didUpdateWidget(covariant CartPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.cart.isEmpty && oldWidget.cart.isNotEmpty) {
+      _editedPrices.clear();
+      _discountPercent = 0;
+      _discountController.clear();
+    }
+  }
+
+  @override
   void dispose() {
     _discountController.removeListener(_onDiscountChanged);
     _discountController.dispose();
@@ -669,7 +679,8 @@ class _CartPanelState extends State<CartPanel> {
           const SizedBox(height: 8),
 
           _SummaryRow(
-            label: 'الخصم ($_discountPercent%)',
+            label:
+                'الخصم (${_discountPercent % 1 == 0 ? _discountPercent.toInt() : _discountPercent.toStringAsFixed(2)}%)',
             amount: _discountAmount,
           ),
 

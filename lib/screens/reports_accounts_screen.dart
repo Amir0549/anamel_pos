@@ -1241,7 +1241,8 @@ class _ReportsAccountsScreenState extends State<ReportsAccountsScreen> {
     final double totalCost =
         (_profitStats['totalCost'] as num?)?.toDouble() ?? 0.0;
     final double grossProfit =
-        (_profitStats['grossProfit'] as num?)?.toDouble() ?? (totalRevenue - totalCost);
+        (_profitStats['grossProfit'] as num?)?.toDouble() ??
+            (totalRevenue - totalCost);
     final double profitMargin =
         (_profitStats['profitMargin'] as num?)?.toDouble() ??
             (totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0.0);
@@ -2047,8 +2048,7 @@ class _ReportsAccountsScreenState extends State<ReportsAccountsScreen> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: bgColor,
                   borderRadius: BorderRadius.circular(6),

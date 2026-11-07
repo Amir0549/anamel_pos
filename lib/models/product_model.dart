@@ -65,11 +65,12 @@ class Product {
   /// قائمة المقاسات / الأعمار المتوفرة
   List<String> get size => variants.map((v) => v.age).toList();
 
-  /// توليد باركود تلقائي فريد للمنتج (مثال: PRD-481920)
+  /// توليد باركود تلقائي للمنتج (مثال: 6 481920 037154)
   static String generateBarcode() {
     final random = Random();
-    final number = 100000 + random.nextInt(900000);
-    return 'PRD-$number';
+    final firstBlock = random.nextInt(1000000).toString().padLeft(6, '0');
+    final secondBlock = random.nextInt(1000000).toString().padLeft(6, '0');
+    return '6 $firstBlock $secondBlock';
   }
 
   Product copyWith({
@@ -127,6 +128,22 @@ class ProductVariant {
       (total, color) => total + color.stock,
     );
   }
+
+  ProductVariant copyWith({
+    int? id,
+    String? age,
+    double? salePrice,
+    double? purchasePrice,
+    List<ColorStock>? colors,
+  }) {
+    return ProductVariant(
+      id: id ?? this.id,
+      age: age ?? this.age,
+      salePrice: salePrice ?? this.salePrice,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      colors: colors ?? this.colors,
+    );
+  }
 }
 
 /// مخزون لون معين داخل عمر معين
@@ -156,4 +173,18 @@ class ColorStock {
 
   /// تحويل القيمة المخزنة إلى Color لواجهة Flutter
   Color get color => Color(colorValue);
+
+  ColorStock copyWith({
+    int? id,
+    String? colorName,
+    int? colorValue,
+    int? stock,
+  }) {
+    return ColorStock(
+      id: id ?? this.id,
+      colorName: colorName ?? this.colorName,
+      colorValue: colorValue ?? this.colorValue,
+      stock: stock ?? this.stock,
+    );
+  }
 }

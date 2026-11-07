@@ -1,7 +1,7 @@
 name: anamel_pos
 description: Anamel POS - Children's clothing store management system.
 publish_to: "Lunaris"
-version: 1.0.0+1
+version: 1.1.5+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

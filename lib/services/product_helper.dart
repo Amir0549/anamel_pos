@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class AnamelDatabase {
@@ -28,8 +29,23 @@ class AnamelDatabase {
     // تهيئة SQLite لـ Desktop.
     databaseFactory = databaseFactoryFfi;
 
-    final databasesPath = await getDatabasesPath();
-    final dbPath = p.join(databasesPath, _databaseName);
+    final appDir = await getApplicationDocumentsDirectory();
+    final storageDir = Directory(p.join(appDir.path, 'AnamelPOS'));
+    await storageDir.create(recursive: true);
+
+    final dbPath = p.join(storageDir.path, _databaseName);
+    final legacyPath = p.join(await getDatabasesPath(), _databaseName);
+    final databaseFile = File(dbPath);
+    final legacyFile = File(legacyPath);
+
+    if (!await databaseFile.exists() && await legacyFile.exists()) {
+      await legacyFile.copy(dbPath);
+
+      final legacyWalFile = File('$legacyPath-wal');
+      if (await legacyWalFile.exists()) {
+        await legacyWalFile.copy('$dbPath-wal');
+      }
+    }
 
     return openDatabase(
       dbPath,
@@ -307,8 +323,8 @@ class AnamelDatabase {
 
     databaseFactory = databaseFactoryFfi;
 
-    final databasesPath = await getDatabasesPath();
-    final dbPath = p.join(databasesPath, _databaseName);
+    final appDir = await getApplicationDocumentsDirectory();
+    final dbPath = p.join(appDir.path, 'AnamelPOS', _databaseName);
 
     final file = File(dbPath);
 

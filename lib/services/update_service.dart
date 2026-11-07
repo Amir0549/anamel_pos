@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -10,86 +9,101 @@ class UpdateService {
   static const String updateUrl =
       'https://drive.google.com/uc?export=download&id=181eUiu-M2ey27jHG-Rq9LqCjn8VxGQF1';
 
+  /// الحصول على الإصدار المثبت حاليًا.
   Future<String> getCurrentVersion() async {
     final info = await PackageInfo.fromPlatform();
     return info.version;
   }
 
-  String get currentOperatingSystem {
-    if (Platform.isWindows) {
-      return 'windows';
-    }
-
-    if (Platform.isLinux) {
-      return 'linux';
-    }
-
-    return Platform.operatingSystem;
-  }
-
+  /// التحقق من وجود تحديث جديد.
+  ///
+  /// يرجع UpdateInfo إذا كان هناك إصدار أحدث،
+  /// ويرجع null إذا لم يوجد تحديث أو حدث خطأ.
   Future<UpdateInfo?> checkForUpdate() async {
     try {
-      final response = await http
-          .get(Uri.parse(updateUrl))
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(Uri.parse(updateUrl)).timeout(
+            const Duration(seconds: 10),
+          );
 
       if (response.statusCode != 200) {
         return null;
       }
 
-      final json = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
-      if (json is! Map<String, dynamic>) {
+      if (decoded is! Map<String, dynamic>) {
         return null;
       }
 
-      final update = UpdateInfo.fromJson(json);
+      final update = UpdateInfo.fromJson(decoded);
+
+      // لا نعتبر الملف صالحًا إذا لم يحتوي على رقم إصدار.
+      if (update.version.isEmpty) {
+        return null;
+      }
 
       final currentVersion = await getCurrentVersion();
 
-      if (!_isNewerVersion(update.version, currentVersion)) {
-        return null;
+      if (_isNewerVersion(
+        update.version,
+        currentVersion,
+      )) {
+        return update;
       }
 
-      // نتأكد أن هناك ملف تحديث مناسب لهذا النظام.
-      final downloadUrl = update.downloadUrlFor(currentOperatingSystem);
-
-      if (downloadUrl == null || downloadUrl.isEmpty) {
-        return null;
-      }
-
-      return update;
+      return null;
     } catch (_) {
+      // فشل الإنترنت أو قراءة الملف لا يجب أن يؤثر
+      // على تشغيل التطبيق.
       return null;
     }
   }
 
-  String? getDownloadUrl(UpdateInfo update) {
-    return update.downloadUrlFor(currentOperatingSystem);
+  /// مقارنة إصدارين بصيغة:
+  /// major.minor.patch
+  ///
+  /// مثال:
+  /// 1.10.0 > 1.9.0
+  /// 2.0.0 > 1.99.99
+  bool _isNewerVersion(
+    String latest,
+    String current,
+  ) {
+    try {
+      final latestParts = _parseVersion(latest);
+      final currentParts = _parseVersion(current);
+
+      final length = latestParts.length > currentParts.length
+          ? latestParts.length
+          : currentParts.length;
+
+      for (var i = 0; i < length; i++) {
+        final latestValue = i < latestParts.length ? latestParts[i] : 0;
+
+        final currentValue = i < currentParts.length ? currentParts[i] : 0;
+
+        if (latestValue > currentValue) {
+          return true;
+        }
+
+        if (latestValue < currentValue) {
+          return false;
+        }
+      }
+
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
-  bool _isNewerVersion(String latest, String current) {
-    final latestParts = latest.split('.').map(int.parse).toList();
-    final currentParts = current.split('.').map(int.parse).toList();
-
-    final length = latestParts.length > currentParts.length
-        ? latestParts.length
-        : currentParts.length;
-
-    for (var i = 0; i < length; i++) {
-      final latestValue = i < latestParts.length ? latestParts[i] : 0;
-
-      final currentValue = i < currentParts.length ? currentParts[i] : 0;
-
-      if (latestValue > currentValue) {
-        return true;
-      }
-
-      if (latestValue < currentValue) {
-        return false;
-      }
-    }
-
-    return false;
+  /// تحويل رقم الإصدار إلى أرقام.
+  ///
+  /// يدعم:
+  /// 1.0.0
+  /// 1.2
+  /// 1.10.3
+  List<int> _parseVersion(String version) {
+    return version.trim().split('.').map((part) => int.parse(part)).toList();
   }
 }

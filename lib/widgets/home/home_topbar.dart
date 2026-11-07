@@ -3,7 +3,8 @@ import 'package:anamel_pos/models/user_model.dart';
 import 'package:anamel_pos/services/update_service.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:anamel_pos/services/update_installer_service.dart';
 
 class HomeTopBar extends StatefulWidget {
   final UserModel? currentUser;
@@ -19,11 +20,13 @@ class HomeTopBar extends StatefulWidget {
 
 class _HomeTopBarState extends State<HomeTopBar> {
   UpdateInfo? _availableUpdate;
+  String _appVersion = '';
 
   @override
   void initState() {
     super.initState();
     _checkForUpdate();
+    _loadAppVersion();
   }
 
   Future<void> _checkForUpdate() async {
@@ -36,6 +39,16 @@ class _HomeTopBarState extends State<HomeTopBar> {
     });
   }
 
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+
+    if (!mounted) return;
+
+    setState(() {
+      _appVersion = packageInfo.version;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -45,19 +58,24 @@ class _HomeTopBarState extends State<HomeTopBar> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 3),
-              Row(
-                children: [
-                  const Text(
-                    'أنامل',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'Tajawal',
-                      color: AnamelColors.brown,
-                    ),
-                  ),
-                ],
+              const Text(
+                'أنامل',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Tajawal',
+                  color: AnamelColors.brown,
+                ),
               ),
+              if (_appVersion.isNotEmpty)
+                Text(
+                  'الإصدار $_appVersion',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AnamelColors.brown.withOpacity(0.55),
+                  ),
+                ),
             ],
           ),
         ),
@@ -254,11 +272,7 @@ class _HomeTopBarState extends State<HomeTopBar> {
               ),
             ElevatedButton.icon(
               onPressed: () {
-                final downloadUrl = UpdateService().getDownloadUrl(update);
-
-                if (downloadUrl != null) {
-                  _openUpdate(downloadUrl);
-                }
+                _openUpdate(update.downloadUrl);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AnamelColors.sageDark,
@@ -290,15 +304,18 @@ class _HomeTopBarState extends State<HomeTopBar> {
   }
 
   Future<void> _openUpdate(String url) async {
-    final uri = Uri.tryParse(url);
+    try {
+      await UpdateInstallerService().downloadAndInstall(url);
+    } catch (e) {
+      if (!mounted) return;
 
-    if (uri == null) {
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تعذر تحميل التحديث: $e',
+          ),
+        ),
+      );
     }
-
-    await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
   }
 }

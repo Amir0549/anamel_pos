@@ -10,6 +10,58 @@ import 'package:win32/win32.dart';
 
 import '../models/product_model.dart';
 
+enum ProductLabelSize {
+  mm40x20,
+  mm45x35,
+}
+
+extension ProductLabelSizeExtension on ProductLabelSize {
+  double get widthMm {
+    switch (this) {
+      case ProductLabelSize.mm40x20:
+        return 40;
+      case ProductLabelSize.mm45x35:
+        return 45;
+    }
+  }
+
+  double get heightMm {
+    switch (this) {
+      case ProductLabelSize.mm40x20:
+        return 20;
+      case ProductLabelSize.mm45x35:
+        return 35;
+    }
+  }
+
+  int get widthPx {
+    switch (this) {
+      case ProductLabelSize.mm40x20:
+        return 320;
+      case ProductLabelSize.mm45x35:
+        return 360;
+    }
+  }
+
+  int get heightPx {
+    switch (this) {
+      case ProductLabelSize.mm40x20:
+        return 160;
+      case ProductLabelSize.mm45x35:
+        return 280;
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case ProductLabelSize.mm40x20:
+        return '40 × 20 مم';
+      case ProductLabelSize.mm45x35:
+        return '45 × 35 مم';
+    }
+  }
+}
+
 /// خدمة مخصصة لطباعة باركود المنتجات بتصميم ملصق احترافي ومتناسق:
 /// - في الأعلى: سعر المنتج بخط عريض وواضح جداً (مثال: 2,500 دج).
 /// - في الوسط: باركود أصغر حجماً وأنيق (Code128).
@@ -20,9 +72,8 @@ class ProductBarcodePrintService {
 
   static const String defaultPrinterName = 'XPrinter XP-350B';
 
-  // مقاس الملصق الفعلي: 40 × 20 مم عند 203 DPI (8 dots/mm)
-  static const int labelWidth = 320;
-  static const int labelHeight = 160;
+  // المقاس الأساسي 40 × 20 مم عند 203 DPI (8 dots/mm).
+  // يتم تكبير التصميم بالكامل تلقائياً عند اختيار 50 × 30 مم.
 
   static bool _fontLoaded = false;
 
@@ -39,6 +90,7 @@ class ProductBarcodePrintService {
     int copies = 1,
     String printerName = defaultPrinterName,
     bool sideOnRight = true,
+    ProductLabelSize labelSize = ProductLabelSize.mm40x20,
   }) async {
     final barcodeValue = product.barcode.trim();
 
@@ -50,8 +102,7 @@ class ProductBarcodePrintService {
         (variant?.salePrice ??
             (product.variants.isNotEmpty ? product.salePrice : 0.0));
 
-    final String priceText =
-        customPriceText ?? formatPrice(effectivePrice);
+    final String priceText = customPriceText ?? formatPrice(effectivePrice);
 
     final String displayName = variant != null && variant.age.trim().isNotEmpty
         ? '${product.name} (${variant.age})'
@@ -64,10 +115,15 @@ class ProductBarcodePrintService {
       barcodeValue: barcodeValue,
       priceText: priceText,
       sideOnRight: sideOnRight,
+      labelSize: labelSize,
     );
 
-    final bitmap = await _imageToMonoBitmap(image);
-    final tspl = _buildTspl(bitmap, copies: copies);
+    final bitmap = await _imageToMonoBitmap(image, labelSize);
+    final tspl = _buildTspl(
+      bitmap,
+      copies: copies,
+      labelSize: labelSize,
+    );
 
     _sendRawToPrinter(
       printerName: printerName,
@@ -83,6 +139,7 @@ class ProductBarcodePrintService {
     int copies = 1,
     String printerName = defaultPrinterName,
     bool sideOnRight = true,
+    ProductLabelSize labelSize = ProductLabelSize.mm40x20,
   }) async {
     final barcodeValue = barcode.trim();
 
@@ -97,10 +154,15 @@ class ProductBarcodePrintService {
       barcodeValue: barcodeValue,
       priceText: formatPrice(price),
       sideOnRight: sideOnRight,
+      labelSize: labelSize,
     );
 
-    final bitmap = await _imageToMonoBitmap(image);
-    final tspl = _buildTspl(bitmap, copies: copies);
+    final bitmap = await _imageToMonoBitmap(image, labelSize);
+    final tspl = _buildTspl(
+      bitmap,
+      copies: copies,
+      labelSize: labelSize,
+    );
 
     _sendRawToPrinter(
       printerName: printerName,
@@ -132,15 +194,18 @@ class ProductBarcodePrintService {
   // CREATE LABEL IMAGE (CANVAS)
   // ---------------------------------------------------------------------------
 
-  /// رسم الملصق بدقة 320x160 مع كامل التخصيصات المطلوبة
   static Future<ui.Image> createLabelImage({
     required String productName,
     required String barcodeValue,
     required String priceText,
     String brandName = 'أنامل',
     bool sideOnRight = true,
+    ProductLabelSize labelSize = ProductLabelSize.mm40x20,
   }) async {
     final recorder = ui.PictureRecorder();
+
+    final labelWidth = labelSize.widthPx;
+    final labelHeight = labelSize.heightPx;
 
     final canvas = Canvas(
       recorder,
@@ -152,7 +217,27 @@ class ProductBarcodePrintService {
       ),
     );
 
-    // 1. خلفية بيضاء
+    // ---------------------------------------------------------------------------
+    // نستخدم نظام إحداثيات موحد حسب المقاس الفعلي.
+    // 40×20 = 320×160
+    // 45×35 = 360×280
+    // ---------------------------------------------------------------------------
+
+    final double scaleX = labelWidth / 320.0;
+
+    // نستخدم المقياس الأفقي للنصوص والعرض،
+    // بينما نعتمد الارتفاع الفعلي لتوزيع العناصر عمودياً.
+    final double s = scaleX;
+
+    canvas.scale(s, s);
+
+    final double designWidth = labelWidth / s;
+    final double designHeight = labelHeight / s;
+
+    // ---------------------------------------------------------------------------
+    // 1. الخلفية
+    // ---------------------------------------------------------------------------
+
     final backgroundPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -161,54 +246,57 @@ class ProductBarcodePrintService {
       Rect.fromLTWH(
         0,
         0,
-        labelWidth.toDouble(),
-        labelHeight.toDouble(),
+        designWidth,
+        designHeight,
       ),
       backgroundPaint,
     );
 
-    // -------------------------------------------------------------------------
-    // تقسيم المساحة بين شريط الماركة الجانبي (أنامل) ومنطقة المحتوى الرئيسية
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // 2. أبعاد الجانب الخاص بـ "أنامل"
+    // ---------------------------------------------------------------------------
+
     const double sideBarWidth = 52.0;
     const double dividerLineWidth = 1.5;
 
-    final double contentLeft;
-    final double contentWidth = labelWidth - sideBarWidth;
     final double dividerX;
     final double brandCenterX;
+    final double contentLeft;
+    final double contentWidth;
 
     if (sideOnRight) {
-      // شريط الماركة على اليمين (يناسب اللغة العربية)
-      dividerX = labelWidth - sideBarWidth;
-      brandCenterX = dividerX + (sideBarWidth / 2);
+      dividerX = designWidth - sideBarWidth;
+      brandCenterX = dividerX + sideBarWidth / 2;
       contentLeft = 0;
+      contentWidth = dividerX;
     } else {
-      // شريط الماركة على اليسار
       dividerX = sideBarWidth;
       brandCenterX = sideBarWidth / 2;
       contentLeft = sideBarWidth;
+      contentWidth = designWidth - sideBarWidth;
     }
 
-    final double contentCenterX = contentLeft + (contentWidth / 2);
+    // ---------------------------------------------------------------------------
+    // 3. الخط الجانبي — يأخذ كامل ارتفاع الملصق تقريباً
+    // ---------------------------------------------------------------------------
 
-    // -------------------------------------------------------------------------
-    // 2. الخط الطولي الجانبي
-    // -------------------------------------------------------------------------
     final linePaint = Paint()
       ..color = Colors.black
       ..strokeWidth = dividerLineWidth
       ..style = PaintingStyle.stroke;
 
+    const double sideMargin = 5.0;
+
     canvas.drawLine(
-      Offset(dividerX, 8),
-      Offset(dividerX, labelHeight - 8),
+      Offset(dividerX, sideMargin),
+      Offset(dividerX, designHeight - sideMargin),
       linePaint,
     );
 
-    // -------------------------------------------------------------------------
-    // 3. كتابة كلمة "أنامل" طولياً بجانب الخط
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // 4. كلمة "أنامل" — موزعة على كامل الجانب
+    // ---------------------------------------------------------------------------
+
     final brandPainter = TextPainter(
       text: TextSpan(
         text: brandName,
@@ -217,37 +305,62 @@ class ProductBarcodePrintService {
           fontSize: 18,
           fontWeight: FontWeight.w900,
           color: Colors.black,
-          letterSpacing: 1.2,
         ),
       ),
       textDirection: TextDirection.rtl,
       textAlign: TextAlign.center,
     );
 
-    brandPainter.layout();
+    brandPainter.layout(
+      maxWidth: sideBarWidth - 8,
+    );
 
     canvas.save();
-    canvas.translate(brandCenterX, labelHeight / 2);
-    // تدوير 90 درجة للقراءة الرأسية المتصلة من الأعلى للأسفل
+
+    canvas.translate(
+      brandCenterX,
+      designHeight / 2,
+    );
+
+    // الدوران يجعل "أنامل" ممتدة بصرياً على طول الجانب.
     canvas.rotate(math.pi / 2);
+
     brandPainter.paint(
       canvas,
-      Offset(-brandPainter.width / 2, -brandPainter.height / 2),
+      Offset(
+        -brandPainter.width / 2,
+        -brandPainter.height / 2,
+      ),
     );
+
     canvas.restore();
 
-    // -------------------------------------------------------------------------
-    // 4. في الأعلى: سعر المنتج بخط واضح وعريض
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // 5. حساب المساحة الداخلية للمحتوى
+    // ---------------------------------------------------------------------------
+
+    final double horizontalPadding = 8.0;
+
+    final double innerLeft = contentLeft + horizontalPadding;
+
+    final double innerRight = contentLeft + contentWidth - horizontalPadding;
+
+    final double innerWidth = innerRight - innerLeft;
+
+    final double centerX = (innerLeft + innerRight) / 2;
+
+    // ---------------------------------------------------------------------------
+    // 6. السعر
+    // ---------------------------------------------------------------------------
+
     final pricePainter = TextPainter(
       text: TextSpan(
         text: priceText,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 24,
+          fontSize: 23,
           fontWeight: FontWeight.w900,
           color: Colors.black,
-          letterSpacing: 0.5,
         ),
       ),
       textDirection: TextDirection.rtl,
@@ -255,23 +368,68 @@ class ProductBarcodePrintService {
       maxLines: 1,
     );
 
-    pricePainter.layout(maxWidth: contentWidth - 16);
+    pricePainter.layout(
+      maxWidth: innerWidth,
+    );
+
+    // ---------------------------------------------------------------------------
+    // توزيع رأسي مختلف حسب حجم الملصق
+    // ---------------------------------------------------------------------------
+
+    final bool isLargeLabel = labelSize == ProductLabelSize.mm45x35;
+
+    double priceY;
+    double barcodeY;
+    double barcodeHeight;
+    double nameAreaTop;
+
+    if (isLargeLabel) {
+      // ---------------------------------------------------------
+      // 45 × 35
+      // نستغل الارتفاع الإضافي بتوزيع العناصر على كامل المساحة.
+      // ---------------------------------------------------------
+
+      priceY = 10;
+
+      barcodeY = 82;
+
+      barcodeHeight = 65;
+
+      nameAreaTop = 170;
+    } else {
+      // ---------------------------------------------------------
+      // 40 × 20
+      // التصميم المضغوط القديم.
+      // ---------------------------------------------------------
+
+      priceY = 1;
+
+      barcodeY = 43;
+
+      barcodeHeight = 42;
+
+      nameAreaTop = barcodeY + barcodeHeight + 6;
+    }
+
+    // ---------------------------------------------------------------------------
+    // رسم السعر
+    // ---------------------------------------------------------------------------
+
     pricePainter.paint(
       canvas,
       Offset(
-        contentCenterX - (pricePainter.width / 2),
-        4,
+        centerX - pricePainter.width / 2,
+        priceY,
       ),
     );
 
-    // -------------------------------------------------------------------------
-    // 5. في الوسط: الباركود بحجم أصغر وأنيق
-    // -------------------------------------------------------------------------
-    // الحجم الأصغر: العرض 195 والارتفاع 44 (مقارنة بـ 300 × 68 سابقاً)
-    const double barcodeWidth = 195.0;
-    const double barcodeHeight = 44.0;
-    const double barcodeY = 38.0;
-    final double barcodeX = contentCenterX - (barcodeWidth / 2);
+    // ---------------------------------------------------------------------------
+    // 7. الباركود
+    // ---------------------------------------------------------------------------
+
+    final double barcodeWidth = isLargeLabel ? 215.0 : 195.0;
+
+    final double barcodeX = centerX - barcodeWidth / 2;
 
     _drawCode128B(
       canvas,
@@ -282,15 +440,16 @@ class ProductBarcodePrintService {
       height: barcodeHeight,
     );
 
-    // -------------------------------------------------------------------------
-    // 6. تحت الباركود: اسم المنتج بخط أوضح وأكبر بدلاً من رقم الباركود
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // 8. اسم المنتج
+    // ---------------------------------------------------------------------------
+
     final namePainter = TextPainter(
       text: TextSpan(
         text: productName,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 18,
+          fontSize: isLargeLabel ? 20 : 18,
           fontWeight: FontWeight.w700,
           color: Colors.black,
           height: 1.1,
@@ -302,22 +461,39 @@ class ProductBarcodePrintService {
       ellipsis: '...',
     );
 
-    namePainter.layout(maxWidth: contentWidth - 14);
+    namePainter.layout(
+      maxWidth: innerWidth,
+    );
 
-    // التوسيط الرأسي في المساحة المتبقية أسفل الباركود
-    const double bottomAreaTop = barcodeY + barcodeHeight + 4;
-    const double bottomAreaBottom = labelHeight - 4;
-    final double bottomAreaHeight = bottomAreaBottom - bottomAreaTop;
+    // ---------------------------------------------------------------------------
+    // 9. وضع اسم المنتج في المساحة المتبقية
+    // ---------------------------------------------------------------------------
+
+    final double bottomPadding = isLargeLabel ? 12 : 3;
+
+    final double nameAreaBottom = designHeight - bottomPadding;
+
+    final double nameAreaHeight = nameAreaBottom - nameAreaTop;
+
     final double nameY =
-        bottomAreaTop + ((bottomAreaHeight - namePainter.height) / 2);
+        nameAreaTop + ((nameAreaHeight - namePainter.height) / 2);
+
+    final double safeNameY = nameY.clamp(
+      nameAreaTop,
+      nameAreaBottom - namePainter.height,
+    );
 
     namePainter.paint(
       canvas,
       Offset(
-        contentCenterX - (namePainter.width / 2),
-        nameY.clamp(bottomAreaTop, bottomAreaBottom - namePainter.height),
+        centerX - namePainter.width / 2,
+        safeNameY,
       ),
     );
+
+    // ---------------------------------------------------------------------------
+    // 10. إنهاء الصورة
+    // ---------------------------------------------------------------------------
 
     final picture = recorder.endRecording();
 
@@ -368,28 +544,114 @@ class ProductBarcodePrintService {
     if (value.isEmpty) return;
 
     final patterns = <String>[
-      '11011001100', '11001101100', '11001100110', '10010011000', '10010001100',
-      '10001001100', '10011001000', '10011000100', '10001100100', '11001001000',
-      '11001000100', '11000100100', '10110011100', '10011011100', '10011001110',
-      '10111001100', '10011101100', '10011100110', '11001110010', '11001011100',
-      '11001001110', '11011100100', '11001110100', '11101101110', '11101001100',
-      '11100101100', '11100100110', '11101100100', '11100110100', '11100110010',
-      '11011011000', '11011000110', '11000110110', '10100011000', '10001011000',
-      '10001000110', '10110001000', '10001101000', '10001100010', '11010001000',
-      '11000101000', '11000100010', '10110111000', '10110001110', '10001101110',
-      '10111011000', '10111000110', '10001110110', '11101110110', '11010001110',
-      '11000101110', '11011101000', '11011100010', '11011101110', '11101011000',
-      '11101000110', '11100010110', '11101101000', '11101100010', '11100011010',
-      '11101111010', '11001000010', '11110001010', '10100110000', '10100001100',
-      '10010110000', '10010000110', '10000101100', '10000100110', '10110010000',
-      '10110000100', '10011010000', '10011000010', '10000110100', '10000110010',
-      '11000010010', '11001010000', '11110111010', '11000010100', '10001111010',
-      '10100111100', '10010111100', '10010011110', '10111100100', '10011110100',
-      '10011110010', '11110100100', '11110010100', '11110010010', '11011011110',
-      '11011001110', '11011110110', '11110110110', '10101111000', '10100011110',
-      '10001011110', '10111101000', '10111100010', '11110101000', '11110100010',
-      '10111011110', '10111101110', '11101011110', '11110101110', '11010000100',
-      '11010010000', '11010011100', '1100011101011',
+      '11011001100',
+      '11001101100',
+      '11001100110',
+      '10010011000',
+      '10010001100',
+      '10001001100',
+      '10011001000',
+      '10011000100',
+      '10001100100',
+      '11001001000',
+      '11001000100',
+      '11000100100',
+      '10110011100',
+      '10011011100',
+      '10011001110',
+      '10111001100',
+      '10011101100',
+      '10011100110',
+      '11001110010',
+      '11001011100',
+      '11001001110',
+      '11011100100',
+      '11001110100',
+      '11101101110',
+      '11101001100',
+      '11100101100',
+      '11100100110',
+      '11101100100',
+      '11100110100',
+      '11100110010',
+      '11011011000',
+      '11011000110',
+      '11000110110',
+      '10100011000',
+      '10001011000',
+      '10001000110',
+      '10110001000',
+      '10001101000',
+      '10001100010',
+      '11010001000',
+      '11000101000',
+      '11000100010',
+      '10110111000',
+      '10110001110',
+      '10001101110',
+      '10111011000',
+      '10111000110',
+      '10001110110',
+      '11101110110',
+      '11010001110',
+      '11000101110',
+      '11011101000',
+      '11011100010',
+      '11011101110',
+      '11101011000',
+      '11101000110',
+      '11100010110',
+      '11101101000',
+      '11101100010',
+      '11100011010',
+      '11101111010',
+      '11001000010',
+      '11110001010',
+      '10100110000',
+      '10100001100',
+      '10010110000',
+      '10010000110',
+      '10000101100',
+      '10000100110',
+      '10110010000',
+      '10110000100',
+      '10011010000',
+      '10011000010',
+      '10000110100',
+      '10000110010',
+      '11000010010',
+      '11001010000',
+      '11110111010',
+      '11000010100',
+      '10001111010',
+      '10100111100',
+      '10010111100',
+      '10010011110',
+      '10111100100',
+      '10011110100',
+      '10011110010',
+      '11110100100',
+      '11110010100',
+      '11110010010',
+      '11011011110',
+      '11011001110',
+      '11011110110',
+      '11110110110',
+      '10101111000',
+      '10100011110',
+      '10001011110',
+      '10111101000',
+      '10111100010',
+      '11110101000',
+      '11110100010',
+      '10111011110',
+      '10111101110',
+      '11101011110',
+      '11110101110',
+      '11010000100',
+      '11010010000',
+      '11010011100',
+      '1100011101011',
     ];
 
     // Start Code B = 104
@@ -449,7 +711,10 @@ class ProductBarcodePrintService {
   // IMAGE -> MONOCHROME BITMAP
   // ---------------------------------------------------------------------------
 
-  static Future<Uint8List> _imageToMonoBitmap(ui.Image image) async {
+  static Future<Uint8List> _imageToMonoBitmap(
+    ui.Image image,
+    ProductLabelSize labelSize,
+  ) async {
     final byteData = await image.toByteData(
       format: ui.ImageByteFormat.rawRgba,
     );
@@ -459,13 +724,16 @@ class ProductBarcodePrintService {
     }
 
     final rgba = byteData.buffer.asUint8List();
-    const bytesPerRow = labelWidth ~/ 8;
 
-    final output = Uint8List(bytesPerRow * labelHeight);
+    final width = labelSize.widthPx;
+    final height = labelSize.heightPx;
+    final bytesPerRow = width ~/ 8;
 
-    for (int y = 0; y < labelHeight; y++) {
-      for (int x = 0; x < labelWidth; x++) {
-        final index = (y * labelWidth + x) * 4;
+    final output = Uint8List(bytesPerRow * height);
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final index = (y * width + x) * 4;
 
         final r = rgba[index];
         final g = rgba[index + 1];
@@ -493,24 +761,43 @@ class ProductBarcodePrintService {
   static Uint8List _buildTspl(
     Uint8List bitmap, {
     int copies = 1,
+    required ProductLabelSize labelSize,
   }) {
     final safeCopies = copies.clamp(1, 999);
 
+    final widthBytes = labelSize.widthPx ~/ 8;
+    final heightPx = labelSize.heightPx;
+
     final header = StringBuffer();
-    header.write('SIZE 40 mm,20 mm\r\n');
+
+    // كل أمر TSPL يجب أن ينتهي بـ CRLF
+    header.write(
+      'SIZE ${labelSize.widthMm.toInt()} mm,'
+      '${labelSize.heightMm.toInt()} mm\r\n',
+    );
+
     header.write('GAP 2 mm,0 mm\r\n');
     header.write('DIRECTION 1\r\n');
-    header.write('REFERENCE 20,0\r\n');
+    header.write('REFERENCE 0,0\r\n');
     header.write('CLS\r\n');
-    header.write('BITMAP 0,0,${labelWidth ~/ 8},$labelHeight,0,');
+
+    // Bitmap
+    header.write(
+      'BITMAP 0,0,$widthBytes,$heightPx,0,',
+    );
 
     final footer = Uint8List.fromList(
       '\r\nPRINT $safeCopies,1\r\n'.codeUnits,
     );
 
     final result = BytesBuilder();
-    result.add(Uint8List.fromList(header.toString().codeUnits));
+
+    result.add(
+      Uint8List.fromList(header.toString().codeUnits),
+    );
+
     result.add(bitmap);
+
     result.add(footer);
 
     return result.toBytes();
@@ -621,4 +908,3 @@ class ProductBarcodePrintService {
     }
   }
 }
-

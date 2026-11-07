@@ -11,7 +11,10 @@ import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../services/receipt_print_service.dart';
 import '../widgets/dialogs/sales_widgets/category_filter_dialog.dart';
+import '../widgets/dialogs/sales_widgets/receipt_paper_size_dialog.dart';
+import '../widgets/dialogs/sales_widgets/receipt_print_confirm_dialog.dart';
 import '../widgets/dialogs/sales_widgets/variant_selection_dialog.dart';
 import '../widgets/sales/cart_panel.dart';
 import '../widgets/sales/category_bar.dart';
@@ -488,6 +491,10 @@ class _SalesScreenState extends State<SalesScreen> {
         createdAt: now,
         note: saleNote,
         items: saleItems,
+        subtotal: _subtotal,
+        discountPercent: _discountPercent,
+        discountAmount: _discountAmount,
+        totalAmount: _finalTotal,
       );
 
       final savedSale = await saleDatabase.recordSale(sale);
@@ -539,6 +546,13 @@ class _SalesScreenState extends State<SalesScreen> {
 
       widget.onSaleCompleted();
 
+      if (mounted) {
+        setState(() {
+          _editedPrices.clear();
+          _discountPercent = 0;
+        });
+      }
+
       await _loadProducts();
 
       if (mounted) {
@@ -549,6 +563,50 @@ class _SalesScreenState extends State<SalesScreen> {
             ),
           ),
         );
+      }
+
+      // ============================================================
+      // خيار طباعة فاتورة الزبون
+      // 1. يظهر ديالوغ للمستخدم يسأله هل يطبع الفاتورة أم لا
+      // 2. إذا وافق، يظهر ديالوغ لتحديد مقاس الورق (80مم، 58مم، A4، A5)
+      // 3. إرسال الفاتورة للطباعة بالبيانات والمقاس المحدد
+      // ============================================================
+      if (mounted) {
+        final shouldPrint = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => ReceiptPrintConfirmDialog(
+            invoiceNumber: invoiceNumber,
+            totalAmount: savedSale.totalAmount,
+            customerName: customer?.name,
+          ),
+        );
+
+        if (shouldPrint == true && mounted) {
+          final paperSize = await showDialog<ReceiptPaperSize>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogCtx) => const ReceiptPaperSizeDialog(),
+          );
+
+          if (paperSize != null && mounted) {
+            try {
+              await ReceiptPrintService.printReceipt(
+                sale: savedSale,
+                paperSize: paperSize,
+              );
+            } catch (printError) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('تعذرت طباعة الفاتورة: $printError'),
+                    backgroundColor: Colors.red.shade700,
+                  ),
+                );
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       if (mounted) {

@@ -108,6 +108,9 @@ class SaleItem {
 /// - الزبون (اسمه ومعرفه اختياري)
 /// - التاريخ الكامل مع الساعات والدقائق والثواني
 /// - قائمة المنتجات المباعة (SaleItem)
+/// - إجمالي الفاتورة قبل الخصم
+/// - نسبة الخصم المئوية ومبلغ الخصم
+/// - الإجمالي بعد الخصم
 class SaleModel {
   final int? id;
 
@@ -135,6 +138,18 @@ class SaleModel {
   /// قائمة المنتجات المباعة
   final List<SaleItem> items;
 
+  /// إجمالي الفاتورة قبل الخصم
+  final double subtotal;
+
+  /// نسبة الخصم المئوية (مثال: 10 تعني 10%)
+  final double discountPercent;
+
+  /// مبلغ الخصم (بالدينار)
+  final double discountAmount;
+
+  /// الإجمالي النهائي بعد الخصم
+  final double totalAmount;
+
   SaleModel({
     this.id,
     required this.invoiceNumber,
@@ -145,14 +160,42 @@ class SaleModel {
     DateTime? createdAt,
     this.note,
     this.items = const [],
-  }) : createdAt = createdAt ?? DateTime.now();
+    double? subtotal,
+    double discountPercent = 0.0,
+    double? discountAmount,
+    double? totalAmount,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        subtotal = subtotal ?? _calcSubtotal(items),
+        discountPercent = discountPercent,
+        discountAmount = discountAmount ??
+            _calcDiscountAmount(
+              subtotal ?? _calcSubtotal(items),
+              discountPercent,
+            ),
+        totalAmount = totalAmount ??
+            _calcTotalAmount(
+              subtotal ?? _calcSubtotal(items),
+              discountAmount ??
+                  _calcDiscountAmount(
+                    subtotal ?? _calcSubtotal(items),
+                    discountPercent,
+                  ),
+            );
 
-  /// إجمالي قيمة الفاتورة
-  double get totalAmount =>
+  static double _calcSubtotal(List<SaleItem> items) =>
       items.fold(0.0, (sum, item) => sum + item.totalPrice);
+
+  static double _calcDiscountAmount(double subtotal, double percent) =>
+      subtotal * (percent / 100);
+
+  static double _calcTotalAmount(double subtotal, double discount) =>
+      (subtotal - discount).clamp(0.0, double.infinity);
 
   /// إجمالي عدد القطع المباعة
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
+
+  /// هل تم تطبيق خصم على الفاتورة
+  bool get hasDiscount => discountAmount > 0 || discountPercent > 0;
 
   Map<String, dynamic> toMap() {
     return {
@@ -162,6 +205,9 @@ class SaleModel {
       'account_name': accountName,
       'customer_name': customerName,
       'customer_id': customerId,
+      'subtotal': subtotal,
+      'discount_percent': discountPercent,
+      'discount_amount': discountAmount,
       'total_amount': totalAmount,
       'total_quantity': totalQuantity,
       'note': note,
@@ -174,6 +220,18 @@ class SaleModel {
     Map<String, dynamic> map, {
     List<SaleItem>? items,
   }) {
+    final saleItems = items ?? [];
+    final itemsSum = _calcSubtotal(saleItems);
+    final subtotal = (map['subtotal'] as num?)?.toDouble() ??
+        (map['total_amount'] as num?)?.toDouble() ??
+        itemsSum;
+    final discountPercent =
+        (map['discount_percent'] as num?)?.toDouble() ?? 0.0;
+    final discountAmount = (map['discount_amount'] as num?)?.toDouble() ??
+        _calcDiscountAmount(subtotal, discountPercent);
+    final totalAmount = (map['total_amount'] as num?)?.toDouble() ??
+        _calcTotalAmount(subtotal, discountAmount);
+
     return SaleModel(
       id: map['id'] as int?,
       invoiceNumber: map['invoice_number'] as String? ?? '',
@@ -185,7 +243,11 @@ class SaleModel {
       createdAt: map['created_at'] != null
           ? (DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now())
           : DateTime.now(),
-      items: items ?? [],
+      items: saleItems,
+      subtotal: subtotal,
+      discountPercent: discountPercent,
+      discountAmount: discountAmount,
+      totalAmount: totalAmount,
     );
   }
 
@@ -199,6 +261,10 @@ class SaleModel {
     DateTime? createdAt,
     String? note,
     List<SaleItem>? items,
+    double? subtotal,
+    double? discountPercent,
+    double? discountAmount,
+    double? totalAmount,
   }) {
     return SaleModel(
       id: id ?? this.id,
@@ -210,6 +276,10 @@ class SaleModel {
       createdAt: createdAt ?? this.createdAt,
       note: note ?? this.note,
       items: items ?? this.items,
+      subtotal: subtotal ?? this.subtotal,
+      discountPercent: discountPercent ?? this.discountPercent,
+      discountAmount: discountAmount ?? this.discountAmount,
+      totalAmount: totalAmount ?? this.totalAmount,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/screens/inventory_screen.dart';
+import 'package:anamel_pos/screens/purchase_screen.dart';
 import 'package:anamel_pos/services/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/dialogs/product_screen/manage_categories_dialog.dart';
@@ -7,8 +8,6 @@ import 'package:anamel_pos/widgets/dialogs/product_screen/product_details_dialog
 import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
-import '../widgets/dialogs/product_screen/add_product_dialog.dart';
 
 class ProductsScreen extends StatefulWidget {
   final List<Product>? products;
@@ -24,8 +23,19 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final ProductDao _productDao = ProductDao();
+  final TextEditingController _searchController = TextEditingController();
+  List<Product> _allProducts = [];
   List<Product> _products = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+
+  void _onSearchChanged(String query) {
+    final normalizedQuery = query.trim().toLowerCase();
+    setState(() {
+      _searchQuery = normalizedQuery;
+      _products = _filterProducts(_allProducts, normalizedQuery);
+    });
+  }
 
   @override
   void initState() {
@@ -33,10 +43,26 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _loadProducts();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Product> _filterProducts(List<Product> products, String query) {
+    if (query.isEmpty) return products;
+
+    return products.where((product) {
+      return product.name.toLowerCase().contains(query) ||
+          product.barcode.toLowerCase().contains(query);
+    }).toList();
+  }
+
   Future<void> _loadProducts() async {
     if (widget.products != null) {
       setState(() {
-        _products = widget.products!;
+        _allProducts = widget.products!;
+        _products = _filterProducts(_allProducts, _searchQuery);
         _isLoading = false;
       });
       return;
@@ -48,13 +74,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final prods = await _productDao.getAll();
       if (mounted) {
         setState(() {
-          _products = prods;
+          _allProducts = prods;
+          _products = _filterProducts(_allProducts, _searchQuery);
           _isLoading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
+          _allProducts = [];
           _products = [];
           _isLoading = false;
         });
@@ -62,20 +90,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  Future<void> _showAddProductDialog() async {
+  Future<void> _showManageCategoriesDialog() async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => const AddProductDialog(),
+      builder: (_) => const ManageCategoriesDialog(),
     );
     if (result == true) {
       _loadProducts();
     }
   }
 
-  Future<void> _showManageCategoriesDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (_) => const ManageCategoriesDialog(),
+  Future<void> _openPurchaseScreen() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const PurchaseScreen(),
+      ),
     );
     if (result == true) {
       _loadProducts();
@@ -182,16 +212,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 color: AnamelColors.border,
               ),
             ),
-            child: const TextField(
+            child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'ابحث عن منتج أو باركود...',
-                prefixIcon: Icon(
+                prefixIcon: const Icon(
                   Icons.search_rounded,
                   size: 20,
                 ),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'مسح البحث',
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.only(top: 12),
+                contentPadding: const EdgeInsets.only(top: 12),
               ),
+              onChanged: _onSearchChanged,
             ),
           ),
           const SizedBox(width: 10),
@@ -212,11 +254,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
           const SizedBox(width: 10),
           _buildActionButton(
-            label: 'إضافة منتج',
-            icon: Icons.add_rounded,
+            label: 'فاتورة شراء',
+            icon: Icons.shopping_bag_rounded,
             background: AnamelColors.sageDark,
             foreground: AnamelColors.white,
-            onPressed: _showAddProductDialog,
+            onPressed: _openPurchaseScreen,
           ),
         ],
       ),
@@ -305,6 +347,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Widget _buildEmptyState() {
+    final hasSearchQuery = _searchQuery.isNotEmpty;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -322,8 +365,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           ),
           const SizedBox(height: 15),
-          const Text(
-            'لا توجد منتجات بعد',
+          Text(
+            hasSearchQuery ? 'لا توجد نتائج مطابقة' : 'لا توجد منتجات بعد',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -331,20 +374,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'ابدأ بإضافة أول منتج إلى متجرك.',
+          Text(
+            hasSearchQuery
+                ? 'جرّب البحث باسم منتج أو باركود آخر.'
+                : 'ابدأ بإضافة أول منتج إلى متجرك.',
             style: TextStyle(
               color: AnamelColors.brown,
             ),
           ),
-          const SizedBox(height: 18),
-          _buildActionButton(
-            label: 'إضافة أول منتج',
-            icon: Icons.add_rounded,
-            background: AnamelColors.sageDark,
-            foreground: AnamelColors.white,
-            onPressed: _showAddProductDialog,
-          ),
+          if (!hasSearchQuery) ...[
+            const SizedBox(height: 18),
+            _buildActionButton(
+              label: 'شراء بضاعة / إضافة منتجات',
+              icon: Icons.shopping_bag_rounded,
+              background: AnamelColors.sageDark,
+              foreground: AnamelColors.white,
+              onPressed: _openPurchaseScreen,
+            ),
+          ],
         ],
       ),
     );

@@ -427,8 +427,55 @@ class ProductDetailsDialog extends StatelessWidget {
                     color: AnamelColors.brown,
                   ),
                   onPressed: () async {
+                    final selectedSize = await showDialog<ProductLabelSize>(
+                      context: context,
+                      builder: (ctx) {
+                        return Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: AlertDialog(
+                            backgroundColor: AnamelColors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            title: const Text(
+                              'اختر حجم الملصق',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AnamelColors.brown,
+                              ),
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildLabelSizeOption(
+                                  ctx,
+                                  size: ProductLabelSize.mm40x20,
+                                  title: '40 × 20 مم',
+                                  subtitle: 'ملصق صغير',
+                                ),
+                                const SizedBox(height: 10),
+                                _buildLabelSizeOption(
+                                  ctx,
+                                  size: ProductLabelSize.mm45x35,
+                                  title: '50 × 30 مم',
+                                  subtitle: 'ملصق كبير',
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+
+                    // المستخدم أغلق نافذة الاختيار
+                    if (selectedSize == null) return;
+
                     try {
-                      await ProductBarcodePrintService.printProduct(product);
+                      await ProductBarcodePrintService.printProduct(
+                        product,
+                        labelSize: selectedSize,
+                      );
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -455,7 +502,7 @@ class ProductDetailsDialog extends StatelessWidget {
                               ),
                             ),
                             behavior: SnackBarBehavior.floating,
-                            backgroundColor: Colors.red.shade700,
+                            backgroundColor: Colors.red,
                           ),
                         );
                       }
@@ -510,6 +557,84 @@ class ProductDetailsDialog extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildLabelSizeOption(
+    BuildContext context, {
+    required ProductLabelSize size,
+    required String title,
+    required String subtitle,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.pop(context, size);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AnamelColors.ivory,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AnamelColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: size == ProductLabelSize.mm40x20 ? 52 : 64,
+              height: size == ProductLabelSize.mm40x20 ? 28 : 38,
+              decoration: BoxDecoration(
+                color: AnamelColors.white,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: AnamelColors.sageDark,
+                  width: 1.5,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.local_offer_outlined,
+                  size: 18,
+                  color: AnamelColors.sageDark,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AnamelColors.brown,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AnamelColors.brown.withValues(
+                        alpha: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_left_rounded,
+              color: AnamelColors.sageDark,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

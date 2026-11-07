@@ -123,7 +123,7 @@ class SaleDatabase {
     final salesDir = await getSalesDirectory();
     final indexPath = p.join(salesDir.path, indexDatabaseName);
 
-    return await openDatabase(
+    final db = await openDatabase(
       indexPath,
       version: databaseVersion,
       onCreate: (db, version) async {
@@ -139,6 +139,9 @@ class SaleDatabase {
             account_name TEXT NOT NULL,
             customer_name TEXT,
             customer_id INTEGER,
+            subtotal REAL NOT NULL DEFAULT 0,
+            discount_percent REAL NOT NULL DEFAULT 0,
+            discount_amount REAL NOT NULL DEFAULT 0,
             total_amount REAL NOT NULL,
             total_quantity INTEGER NOT NULL,
             note TEXT,
@@ -172,6 +175,32 @@ class SaleDatabase {
         ''');
       },
     );
+
+    await _ensureIndexTableSchema(db);
+    return db;
+  }
+
+  /// التأكد من وجود كافة أعمدة جدول الفهرس في حال فتح قاعدة بيانات سابقة
+  static Future<void> _ensureIndexTableSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info($tableIndex)');
+      final columnNames = columns.map((c) => c['name'] as String).toSet();
+
+      if (!columnNames.contains('subtotal')) {
+        await db.execute(
+            'ALTER TABLE $tableIndex ADD COLUMN subtotal REAL NOT NULL DEFAULT 0');
+      }
+      if (!columnNames.contains('discount_percent')) {
+        await db.execute(
+            'ALTER TABLE $tableIndex ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0');
+      }
+      if (!columnNames.contains('discount_amount')) {
+        await db.execute(
+            'ALTER TABLE $tableIndex ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0');
+      }
+    } catch (e) {
+      debugPrint('Error ensuring $tableIndex columns: $e');
+    }
   }
 
   /// الحصول على أو فتح قاعدة البيانات اليومية لتاريخ محدد
@@ -200,6 +229,9 @@ class SaleDatabase {
             account_name TEXT NOT NULL,
             customer_name TEXT,
             customer_id INTEGER,
+            subtotal REAL NOT NULL DEFAULT 0,
+            discount_percent REAL NOT NULL DEFAULT 0,
+            discount_amount REAL NOT NULL DEFAULT 0,
             total_amount REAL NOT NULL DEFAULT 0,
             total_quantity INTEGER NOT NULL DEFAULT 0,
             note TEXT,
@@ -240,8 +272,32 @@ class SaleDatabase {
       },
     );
 
+    await _ensureDailyTableSchema(db);
     _dailyDbCache[folderName] = db;
     return db;
+  }
+
+  /// التأكد من وجود كافة أعمدة جدول الفواتير اليومية
+  static Future<void> _ensureDailyTableSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info($tableSales)');
+      final columnNames = columns.map((c) => c['name'] as String).toSet();
+
+      if (!columnNames.contains('subtotal')) {
+        await db.execute(
+            'ALTER TABLE $tableSales ADD COLUMN subtotal REAL NOT NULL DEFAULT 0');
+      }
+      if (!columnNames.contains('discount_percent')) {
+        await db.execute(
+            'ALTER TABLE $tableSales ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0');
+      }
+      if (!columnNames.contains('discount_amount')) {
+        await db.execute(
+            'ALTER TABLE $tableSales ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0');
+      }
+    } catch (e) {
+      debugPrint('Error ensuring $tableSales columns: $e');
+    }
   }
 
   // ===========================================================================
@@ -275,6 +331,9 @@ class SaleDatabase {
         'account_name': sale.accountName,
         'customer_name': sale.customerName,
         'customer_id': sale.customerId,
+        'subtotal': sale.subtotal,
+        'discount_percent': sale.discountPercent,
+        'discount_amount': sale.discountAmount,
         'total_amount': totalAmount,
         'total_quantity': totalQuantity,
         'note': sale.note,
@@ -303,6 +362,9 @@ class SaleDatabase {
         'account_name': sale.accountName,
         'customer_name': sale.customerName,
         'customer_id': sale.customerId,
+        'subtotal': sale.subtotal,
+        'discount_percent': sale.discountPercent,
+        'discount_amount': sale.discountAmount,
         'total_amount': totalAmount,
         'total_quantity': totalQuantity,
         'note': sale.note,
@@ -910,6 +972,11 @@ class SaleDatabase {
                 'account_name': row['account_name'],
                 'customer_name': row['customer_name'],
                 'customer_id': row['customer_id'],
+                'subtotal': (row['subtotal'] as num?)?.toDouble() ?? amount,
+                'discount_percent':
+                    (row['discount_percent'] as num?)?.toDouble() ?? 0.0,
+                'discount_amount':
+                    (row['discount_amount'] as num?)?.toDouble() ?? 0.0,
                 'total_amount': amount,
                 'total_quantity': qty,
                 'note': row['note'],

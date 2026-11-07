@@ -17,6 +17,84 @@ class CustomerBarcodeDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final barcodeData = customer.barcode ?? 'CUST-000000';
 
+    Widget buildLabelSizeOption(
+      BuildContext context, {
+      required CustomerLabelSize size,
+      required String title,
+      required String subtitle,
+    }) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.pop(context, size);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AnamelColors.ivory,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AnamelColors.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: size == CustomerLabelSize.mm40x20 ? 52 : 64,
+                height: size == CustomerLabelSize.mm40x20 ? 28 : 38,
+                decoration: BoxDecoration(
+                  color: AnamelColors.white,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: AnamelColors.sageDark,
+                    width: 1.5,
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.local_offer_outlined,
+                    size: 18,
+                    color: AnamelColors.sageDark,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AnamelColors.brown,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AnamelColors.brown.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_left_rounded,
+                color: AnamelColors.sageDark,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
@@ -320,7 +398,54 @@ class CustomerBarcodeDialog extends StatelessWidget {
                     const Spacer(),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        await BarcodePrintService.printCustomer(customer);
+                        final selectedSize =
+                            await showDialog<CustomerLabelSize>(
+                          context: context,
+                          builder: (context) {
+                            return Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: AlertDialog(
+                                backgroundColor: AnamelColors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                                title: const Text(
+                                  'اختر حجم الملصق',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AnamelColors.brown,
+                                  ),
+                                ),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    buildLabelSizeOption(
+                                      context,
+                                      size: CustomerLabelSize.mm40x20,
+                                      title: '40 × 20 مم',
+                                      subtitle: 'ملصق صغير',
+                                    ),
+                                    const SizedBox(height: 10),
+                                    buildLabelSizeOption(
+                                      context,
+                                      size: CustomerLabelSize.mm50x30,
+                                      title: '50 × 30 مم',
+                                      subtitle: 'ملصق كبير',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+
+                        if (selectedSize == null) return;
+
+                        await BarcodePrintService.printCustomer(
+                          customer,
+                          labelSize: selectedSize,
+                        );
                       },
                       icon: const Icon(Icons.print_rounded, size: 20),
                       label: const Text(

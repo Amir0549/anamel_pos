@@ -11,14 +11,28 @@ import '../models/customer_model.dart';
 import '../models/product_model.dart';
 import 'product_barcode_print_service.dart';
 
+enum CustomerLabelSize {
+  mm40x20,
+  mm50x30,
+}
+
+extension CustomerLabelSizeExtension on CustomerLabelSize {
+  double get widthMm => this == CustomerLabelSize.mm40x20 ? 40 : 50;
+  double get heightMm => this == CustomerLabelSize.mm40x20 ? 20 : 30;
+  int get widthPx => this == CustomerLabelSize.mm40x20 ? 320 : 400;
+  int get heightPx => this == CustomerLabelSize.mm40x20 ? 160 : 240;
+  String get displayName => this == CustomerLabelSize.mm40x20
+      ? '40 × 20 مم'
+      : '50 × 30 مم';
+}
+
 class BarcodePrintService {
   BarcodePrintService._();
 
   static const String printerName = 'XPrinter XP-350B';
 
-  // مقاس الملصق الفعلي: 40 × 20 مم عند 203 DPI
-  static const int labelWidth = 320;
-  static const int labelHeight = 160;
+  // المقاس الأساسي 40 × 20 مم عند 203 DPI.
+  // يتم تكبير التصميم بالكامل تلقائياً عند اختيار 50 × 30 مم.
 
   static bool _fontLoaded = false;
 
@@ -26,7 +40,10 @@ class BarcodePrintService {
   // PUBLIC
   // ---------------------------------------------------------------------------
 
-  static Future<void> printCustomer(Customer customer) async {
+  static Future<void> printCustomer(
+    Customer customer, {
+    CustomerLabelSize labelSize = CustomerLabelSize.mm40x20,
+  }) async {
     final barcodeValue = customer.barcode?.trim();
 
     if (barcodeValue == null || barcodeValue.isEmpty) {
@@ -38,11 +55,15 @@ class BarcodePrintService {
     final image = await _createLabelImage(
       customerName: customer.name,
       barcodeValue: barcodeValue,
+      labelSize: labelSize,
     );
 
-    final bitmap = await _imageToMonoBitmap(image);
+    final bitmap = await _imageToMonoBitmap(image, labelSize);
 
-    final tspl = _buildTspl(bitmap);
+    final tspl = _buildTspl(
+      bitmap,
+      labelSize: labelSize,
+    );
 
     _sendRawToPrinter(
       printerName: printerName,
@@ -56,6 +77,7 @@ class BarcodePrintService {
     ProductVariant? variant,
     double? customPrice,
     int copies = 1,
+    ProductLabelSize labelSize = ProductLabelSize.mm40x20,
   }) async {
     await ProductBarcodePrintService.printProduct(
       product,
@@ -63,6 +85,7 @@ class BarcodePrintService {
       customPrice: customPrice,
       copies: copies,
       printerName: printerName,
+      labelSize: labelSize,
     );
   }
 
@@ -94,18 +117,27 @@ class BarcodePrintService {
   static Future<ui.Image> _createLabelImage({
     required String customerName,
     required String barcodeValue,
+    required CustomerLabelSize labelSize,
   }) async {
     final recorder = ui.PictureRecorder();
+
+    final labelWidth = labelSize.widthPx;
+    final labelHeight = labelSize.heightPx;
+
+    // التصميم الأساسي 320×160 ثم يتم تكبيره تناسبياً.
+    final scale = labelWidth / 320.0;
 
     final canvas = Canvas(
       recorder,
       Rect.fromLTWH(
         0,
         0,
-        labelWidth.toDouble(),
-        labelHeight.toDouble(),
+        320.0,
+        160.0,
       ),
     );
+
+    canvas.scale(scale);
 
     // White background.
     final backgroundPaint = Paint()
@@ -116,8 +148,8 @@ class BarcodePrintService {
       Rect.fromLTWH(
         0,
         0,
-        labelWidth.toDouble(),
-        labelHeight.toDouble(),
+        320.0,
+        160.0,
       ),
       backgroundPaint,
     );
@@ -403,28 +435,26 @@ class BarcodePrintService {
 
   static Future<Uint8List> _imageToMonoBitmap(
     ui.Image image,
+    CustomerLabelSize labelSize,
   ) async {
     final byteData = await image.toByteData(
       format: ui.ImageByteFormat.rawRgba,
     );
 
     if (byteData == null) {
-      throw Exception(
-        'تعذر تحويل الملصق إلى صورة.',
-      );
+      throw Exception('تعذر تحويل الملصق إلى صورة.');
     }
 
     final rgba = byteData.buffer.asUint8List();
+    final width = labelSize.widthPx;
+    final height = labelSize.heightPx;
+    final bytesPerRow = width ~/ 8;
 
-    const bytesPerRow = labelWidth ~/ 8;
+    final output = Uint8List(bytesPerRow * height);
 
-    final output = Uint8List(
-      bytesPerRow * labelHeight,
-    );
-
-    for (int y = 0; y < labelHeight; y++) {
-      for (int x = 0; x < labelWidth; x++) {
-        final index = (y * labelWidth + x) * 4;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final index = (y * width + x) * 4;
 
         final r = rgba[index];
         final g = rgba[index + 1];
@@ -449,17 +479,24 @@ class BarcodePrintService {
   // ---------------------------------------------------------------------------
 
   static Uint8List _buildTspl(
-    Uint8List bitmap,
-  ) {
+    Uint8List bitmap, {
+    required CustomerLabelSize labelSize,
+  }) {
     final header = StringBuffer();
 
-    header.write('SIZE 40 mm,20 mm\r\n');
+    header.write(
+      'SIZE ${labelSize.widthMm.toInt()} mm,'
+      '${labelSize.heightMm.toInt()} mm\r\n',
+    );
     header.write('GAP 2 mm,0 mm\r\n');
     header.write('DIRECTION 1\r\n');
     header.write('REFERENCE 20,0\r\n');
     header.write('CLS\r\n');
+
+    final widthBytes = labelSize.widthPx ~/ 8;
+
     header.write(
-      'BITMAP 0,0,${labelWidth ~/ 8},$labelHeight,0,',
+      'BITMAP 0,0,$widthBytes,${labelSize.heightPx},0,',
     );
 
     final footer = Uint8List.fromList(
@@ -467,13 +504,7 @@ class BarcodePrintService {
     );
 
     final result = BytesBuilder();
-
-    result.add(
-      Uint8List.fromList(
-        header.toString().codeUnits,
-      ),
-    );
-
+    result.add(Uint8List.fromList(header.toString().codeUnits));
     result.add(bitmap);
     result.add(footer);
 

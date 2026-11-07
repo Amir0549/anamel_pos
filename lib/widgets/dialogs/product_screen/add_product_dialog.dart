@@ -1,7 +1,7 @@
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:flutter/gestures.dart';
 import '../../../models/product_model.dart';
 import '../../../services/product_dao.dart';
 import '../../anamel_colors.dart';
@@ -44,7 +44,10 @@ const List<_ColorPreset> _presetColors = [
 const List<String> _suggestedAges = [
   '0-3 أشهر',
   '3-6 أشهر',
-  '6-12 شهر',
+  '6-9 أشهر',
+  '9-12 شهر',
+  '12-18 شهر',
+  '18-24 شهر',
   '1-2 سنة',
   '2-3 سنوات',
   '3-4 سنوات',
@@ -121,7 +124,19 @@ class AddProductDialog extends StatefulWidget {
   /// إذا تم تمرير منتج، يعمل الديالوج في وضع التعديل
   final Product? initialProduct;
 
-  const AddProductDialog({super.key, this.initialProduct});
+  /// إذا تم تمرير منتج، يبدأ الديالوج ببياناته كمنتج جديد دون صوره أو هويته
+  final Product? copyFromProduct;
+
+  /// إذا كانت true، يتم إرجاع كائن المنتج دون حفظه في قاعدة البيانات مباشرة
+  /// لاستخدامه كعنصر في فاتورة الشراء
+  final bool returnProductWithoutSaving;
+
+  const AddProductDialog({
+    super.key,
+    this.initialProduct,
+    this.copyFromProduct,
+    this.returnProductWithoutSaving = false,
+  }) : assert(initialProduct == null || copyFromProduct == null);
 
   @override
   State<AddProductDialog> createState() => _AddProductDialogState();
@@ -145,6 +160,8 @@ class _AddProductDialogState extends State<AddProductDialog> {
   String? _errorMessage;
 
   bool get _isEditMode => widget.initialProduct != null;
+
+  final ScrollController _suggestedAgesScrollController = ScrollController();
 
   @override
   void initState() {
@@ -192,6 +209,29 @@ class _AddProductDialogState extends State<AddProductDialog> {
           ),
         );
       }
+    } else if (widget.copyFromProduct != null) {
+      final product = widget.copyFromProduct!;
+      _selectedCategoryIds.addAll(product.categoryIDs);
+      for (final variant in product.variants) {
+        _variants.add(
+          _VariantItemModel(
+            age: variant.age,
+            purchasePrice: variant.purchasePrice.toString(),
+            salePrice: variant.salePrice.toString(),
+            colors: variant.colors
+                .map(
+                  (color) => _ColorItemModel(
+                    name: color.colorName,
+                    colorValue: color.colorValue,
+                    stock: color.stock.toString(),
+                  ),
+                )
+                .toList(),
+            isExpanded: false,
+          ),
+        );
+      }
+      _generateBarcode();
     } else {
       // وضع الإضافة: مقاس افتراضي وتوليد باركود تلقائي
       _addVariant(defaultAge: '1-2 سنة');
@@ -210,9 +250,12 @@ class _AddProductDialogState extends State<AddProductDialog> {
           _isGeneratingBarcode = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isGeneratingBarcode = false);
+        setState(() {
+          _barcodeError = 'تعذر توليد باركود تلقائي: $e';
+          _isGeneratingBarcode = false;
+        });
       }
     }
   }
@@ -683,6 +726,13 @@ class _AddProductDialogState extends State<AddProductDialog> {
         variants: productVariants,
       );
 
+      if (widget.returnProductWithoutSaving) {
+        if (mounted) {
+          Navigator.pop(context, product);
+        }
+        return;
+      }
+
       if (_isEditMode) {
         await _productDao.update(product);
       } else {
@@ -706,6 +756,7 @@ class _AddProductDialogState extends State<AddProductDialog> {
   void dispose() {
     _nameController.dispose();
     _barcodeController.dispose();
+    _suggestedAgesScrollController.dispose();
     for (final variant in _variants) {
       variant.dispose();
     }
@@ -781,7 +832,9 @@ class _AddProductDialogState extends State<AddProductDialog> {
                           Text(
                             _isEditMode
                                 ? 'عدّل بيانات المنتج، أو أضف مقاسات وألواناً أو احذفها.'
-                                : 'حدد بيانات المنتج، وأضف لكل عمر سعره الخاص وألوانه ومخزونه المتوفر.',
+                                : (widget.returnProductWithoutSaving
+                                    ? 'أدخل بيانات المنتج ومقاساته وأسعاره لإضافته كعنصر شراء في الفاتورة.'
+                                    : 'حدد بيانات المنتج، وأضف لكل عمر سعره الخاص وألوانه ومخزونه المتوفر.'),
                             style: TextStyle(
                               fontSize: 12,
                               color: AnamelColors.brown,
@@ -914,7 +967,11 @@ class _AddProductDialogState extends State<AddProductDialog> {
                     _DialogButton(
                       label: _isSaving
                           ? 'جاري الحفظ...'
-                          : (_isEditMode ? 'حفظ التعديلات' : 'حفظ المنتج'),
+                          : (_isEditMode
+                              ? 'حفظ التعديلات'
+                              : (widget.returnProductWithoutSaving
+                                  ? 'إضافة إلى فاتورة الشراء'
+                                  : 'حفظ المنتج')),
                       icon: _isSaving ? null : Icons.check_circle_rounded,
                       onPressed: _isSaving ? () {} : _submitProduct,
                       filled: true,
@@ -1330,11 +1387,16 @@ class _AddProductDialogState extends State<AddProductDialog> {
 
         // Quick add common age chips
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
             color: AnamelColors.ivory.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AnamelColors.border),
+            border: Border.all(
+              color: AnamelColors.border,
+            ),
           ),
           child: Row(
             children: [
@@ -1353,20 +1415,35 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _suggestedAges.map((age) {
-                      final isAlreadyAdded = _variants.any(
-                        (v) =>
-                            v.ageController.text.trim().toLowerCase() ==
-                            age.toLowerCase(),
-                      );
 
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: ActionChip(
+              // مساحة المقاسات
+              Expanded(
+                child: SizedBox(
+                  height: 38,
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.trackpad,
+                      },
+                    ),
+                    child: ListView.separated(
+                      controller: _suggestedAgesScrollController,
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      itemCount: _suggestedAges.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 6),
+                      itemBuilder: (context, index) {
+                        final age = _suggestedAges[index];
+
+                        final isAlreadyAdded = _variants.any(
+                          (v) =>
+                              v.ageController.text.trim().toLowerCase() ==
+                              age.toLowerCase(),
+                        );
+
+                        return ActionChip(
                           avatar: Icon(
                             isAlreadyAdded ? Icons.check : Icons.add,
                             size: 13,
@@ -1397,14 +1474,14 @@ class _AddProductDialogState extends State<AddProductDialog> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                      'المقاس "$age" مضاف بالفعل في القائمة أدناه.'),
+                                    'المقاس "$age" مضاف بالفعل في القائمة أدناه.',
+                                  ),
                                   duration: const Duration(seconds: 1),
                                 ),
                               );
                               return;
                             }
 
-                            // إذا كان هناك مقاس فارغ، عبئه به، وإلا أضف جديداً
                             final emptyVariantIndex = _variants.indexWhere(
                               (v) => v.ageController.text.trim().isEmpty,
                             );
@@ -1416,9 +1493,9 @@ class _AddProductDialogState extends State<AddProductDialog> {
                                     .text = age;
                               });
                             } else {
-                              // إذا كان هناك مقاس سابق، انسخ أسعاره للتسهيل
                               final lastVariant =
                                   _variants.isNotEmpty ? _variants.last : null;
+
                               _addVariant(
                                 defaultAge: age,
                                 purchasePrice:
@@ -1429,9 +1506,9 @@ class _AddProductDialogState extends State<AddProductDialog> {
                               );
                             }
                           },
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),

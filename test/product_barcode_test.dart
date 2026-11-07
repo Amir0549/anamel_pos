@@ -11,10 +11,9 @@ void main() {
   });
 
   group('Product Barcode Tests', () {
-    test('Product.generateBarcode generates valid PRD- format', () {
+    test('Product.generateBarcode generates the expected six-digit blocks', () {
       final barcode = Product.generateBarcode();
-      expect(barcode.startsWith('PRD-'), isTrue);
-      expect(barcode.length, greaterThanOrEqualTo(8));
+      expect(barcode, matches(RegExp(r'^6 \d{6} \d{6}$')));
     });
 
     test('ProductDao insert, getByBarcode, isBarcodeTaken, and search',

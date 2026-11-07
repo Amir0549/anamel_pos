@@ -1,7 +1,7 @@
 import 'package:anamel_pos/models/account_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
 import 'package:anamel_pos/services/report_print_service.dart';
-import 'package:anamel_pos/services/transaction_db.dart';
+import 'package:anamel_pos/services/database/transaction_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 

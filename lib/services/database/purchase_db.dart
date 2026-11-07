@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/models/purchase_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
-import 'package:anamel_pos/services/product_color_stock_dao.dart';
-import 'package:anamel_pos/services/product_dao.dart';
-import 'package:anamel_pos/services/product_variant_dao.dart';
-import 'package:anamel_pos/services/transaction_db.dart';
+import 'package:anamel_pos/services/database/product/product_color_stock_dao.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
+import 'package:anamel_pos/services/database/product/product_variant_dao.dart';
+import 'package:anamel_pos/services/database/transaction_db.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -152,7 +152,8 @@ class PurchaseDatabase {
         String resolvedBarcode = newProduct.barcode.trim();
         if (resolvedBarcode.isNotEmpty) {
           final isTakenInDb = await productDao.isBarcodeTaken(resolvedBarcode);
-          final isTakenInSession = usedBarcodesThisSession.contains(resolvedBarcode);
+          final isTakenInSession =
+              usedBarcodesThisSession.contains(resolvedBarcode);
           if (isTakenInDb || isTakenInSession) {
             // توليد باركود بديل فريد
             resolvedBarcode = await productDao.generateUniqueBarcode();
@@ -224,7 +225,8 @@ class PurchaseDatabase {
               ),
               productId: item.productId,
             );
-            debugPrint('Created new variant $newVariantId for product ${item.productId}');
+            debugPrint(
+                'Created new variant $newVariantId for product ${item.productId}');
           } catch (e) {
             debugPrint('Error creating new variant for product: $e');
           }
@@ -314,4 +316,3 @@ class PurchaseDatabase {
     );
   }
 }
-

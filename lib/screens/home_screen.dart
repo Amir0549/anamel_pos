@@ -46,6 +46,34 @@ class _POSHomeState extends State<POSHome> {
   double get total => cart.fold(0, (sum, p) => sum + p.salePrice);
 
   void addToCart(Product product) {
+    final variant = product.variants.isNotEmpty ? product.variants.first : null;
+    final color = (variant != null && variant.colors.isNotEmpty)
+        ? variant.colors.first
+        : null;
+
+    int currentCount = 0;
+    for (final item in cart) {
+      if (item.id != product.id) continue;
+      final itemVariant =
+          item.variants.isNotEmpty ? item.variants.first : null;
+      final itemColor =
+          (itemVariant != null && itemVariant.colors.isNotEmpty)
+              ? itemVariant.colors.first
+              : null;
+
+      if (variant != null && itemVariant?.id != variant.id) continue;
+      if (color != null && itemColor?.id != color.id) continue;
+
+      currentCount++;
+    }
+
+    final maxStock =
+        color?.stock ?? variant?.totalStock ?? product.totalStock;
+
+    if (maxStock > 0 && currentCount >= maxStock) {
+      return;
+    }
+
     setState(() => cart.add(product));
   }
 

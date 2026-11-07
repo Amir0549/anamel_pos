@@ -1,4 +1,4 @@
-import 'package:anamel_pos/services/product_dao.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';

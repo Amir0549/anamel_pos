@@ -7,8 +7,13 @@ import '../../sales/product_thmbnail.dart';
 
 class ProductVariantSelectionDialog extends StatefulWidget {
   final Product product;
+  final List<Product>? cart;
 
-  const ProductVariantSelectionDialog({super.key, required this.product});
+  const ProductVariantSelectionDialog({
+    super.key,
+    required this.product,
+    this.cart,
+  });
 
   @override
   State<ProductVariantSelectionDialog> createState() =>
@@ -21,18 +26,75 @@ class _ProductVariantSelectionDialogState
   ColorStock? _selectedColorStock;
   String _ageFilter = 'الكل';
 
+  int _getCartCount({int? variantId, int? colorId}) {
+    if (widget.cart == null || widget.cart!.isEmpty) return 0;
+    int count = 0;
+    for (final item in widget.cart!) {
+      if (item.id != widget.product.id) continue;
+      final variant = item.variants.isNotEmpty ? item.variants.first : null;
+      final color = (variant != null && variant.colors.isNotEmpty)
+          ? variant.colors.first
+          : null;
+
+      if (variantId != null && variant?.id != variantId) continue;
+      if (colorId != null && color?.id != colorId) continue;
+
+      count++;
+    }
+    return count;
+  }
+
+  int _getColorRemainingStock(ProductVariant variant, ColorStock color) {
+    final inCart = _getCartCount(variantId: variant.id, colorId: color.id);
+    return color.stock - inCart;
+  }
+
+  int _getVariantRemainingStock(ProductVariant variant) {
+    if (variant.colors.isEmpty) {
+      final inCart = _getCartCount(variantId: variant.id);
+      return variant.totalStock - inCart;
+    }
+    int remaining = 0;
+    for (final color in variant.colors) {
+      final rem = _getColorRemainingStock(variant, color);
+      if (rem > 0) remaining += rem;
+    }
+    return remaining;
+  }
+
   @override
   void initState() {
     super.initState();
-    // If there is only 1 variant with 1 color, pre-select it
-    if (widget.product.variants.length == 1 &&
-        widget.product.variants.first.colors.length == 1) {
-      _selectedVariant = widget.product.variants.first;
-      _selectedColorStock = widget.product.variants.first.colors.first;
+    // If there is only 1 variant with 1 color, pre-select it if it has remaining stock
+    if (widget.product.variants.length == 1) {
+      final firstVariant = widget.product.variants.first;
+      if (firstVariant.colors.length == 1) {
+        final firstColor = firstVariant.colors.first;
+        final rem = _getColorRemainingStock(firstVariant, firstColor);
+        if (rem > 0) {
+          _selectedVariant = firstVariant;
+          _selectedColorStock = firstColor;
+        }
+      } else if (firstVariant.colors.isEmpty) {
+        final rem = _getVariantRemainingStock(firstVariant);
+        if (rem > 0) {
+          _selectedVariant = firstVariant;
+        }
+      }
     }
   }
 
   void _confirmSelection(ProductVariant variant, ColorStock? color) {
+    int rem = 0;
+    if (color != null) {
+      rem = _getColorRemainingStock(variant, color);
+    } else {
+      rem = _getVariantRemainingStock(variant);
+    }
+    if (rem <= 0) {
+      return;
+    }
+
     final selectedProduct = Product(
       id: widget.product.id,
       name: widget.product.name,
@@ -177,22 +239,30 @@ class _ProductVariantSelectionDialogState
                         ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AnamelColors.ivory,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AnamelColors.border),
-                      ),
-                      child: Text(
-                        'إجمالي المخزون: ${widget.product.totalStock}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: AnamelColors.brown,
-                        ),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final inCart = _getCartCount();
+                        final remaining = (widget.product.totalStock - inCart).clamp(0, 999999);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AnamelColors.ivory,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AnamelColors.border),
+                          ),
+                          child: Text(
+                            inCart > 0
+                                ? 'المخزون: $remaining (في السلة: $inCart)'
+                                : 'إجمالي المخزون: ${widget.product.totalStock}',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: AnamelColors.brown,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -347,32 +417,44 @@ class _ProductVariantSelectionDialogState
                 ),
                 const SizedBox(width: 8),
                 // Total stock for this variant
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: variant.totalStock > 0
-                        ? AnamelColors.white
-                        : Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: variant.totalStock > 0
-                          ? AnamelColors.border
-                          : Colors.red.shade200,
-                    ),
-                  ),
-                  child: Text(
-                    variant.totalStock > 0
-                        ? 'متوفر: ${variant.totalStock}'
-                        : 'نفذ المخزون',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: variant.totalStock > 0
-                          ? AnamelColors.brown
-                          : Colors.red.shade700,
-                    ),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final variantRemaining = _getVariantRemainingStock(variant);
+                    final variantInCart = _getCartCount(variantId: variant.id);
+                    final isOutOfStock = variantRemaining <= 0;
+
+                    return Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: !isOutOfStock
+                            ? AnamelColors.white
+                            : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: !isOutOfStock
+                              ? AnamelColors.border
+                              : Colors.red.shade200,
+                        ),
+                      ),
+                      child: Text(
+                        !isOutOfStock
+                            ? (variantInCart > 0
+                                ? 'متبقي: $variantRemaining ($variantInCart بالسلة)'
+                                : 'متوفر: $variantRemaining')
+                            : (variantInCart > 0
+                                ? 'في السلة ($variantInCart) - نفذ'
+                                : 'نفذ المخزون'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: !isOutOfStock
+                              ? AnamelColors.brown
+                              : Colors.red.shade700,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -434,7 +516,12 @@ class _ProductVariantSelectionDialogState
                     children: variant.colors.map((color) {
                       final isSelected = _selectedVariant?.id == variant.id &&
                           _selectedColorStock?.id == color.id;
-                      final isOutOfStock = color.stock <= 0;
+                      final inCart = _getCartCount(
+                        variantId: variant.id,
+                        colorId: color.id,
+                      );
+                      final remainingStock = color.stock - inCart;
+                      final isOutOfStock = remainingStock <= 0;
 
                       return Material(
                         color: isSelected
@@ -521,8 +608,12 @@ class _ProductVariantSelectionDialogState
                                   ),
                                   child: Text(
                                     isOutOfStock
-                                        ? 'نفذ (0)'
-                                        : '${color.stock} متوفر',
+                                        ? (inCart > 0
+                                            ? 'بالسلة ($inCart)'
+                                            : 'نفذ (0)')
+                                        : (inCart > 0
+                                            ? '$remainingStock متوفر ($inCart بالسلة)'
+                                            : '$remainingStock متوفر'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
@@ -560,6 +651,25 @@ class _ProductVariantSelectionDialogState
     final hasSelection = _selectedVariant != null &&
         (_selectedVariant!.colors.isEmpty || _selectedColorStock != null);
 
+    int remainingSelectedStock = 0;
+    int inCartSelectedCount = 0;
+    if (hasSelection) {
+      if (_selectedColorStock != null) {
+        inCartSelectedCount = _getCartCount(
+          variantId: _selectedVariant!.id,
+          colorId: _selectedColorStock!.id,
+        );
+        remainingSelectedStock =
+            _selectedColorStock!.stock - inCartSelectedCount;
+      } else {
+        inCartSelectedCount = _getCartCount(variantId: _selectedVariant!.id);
+        remainingSelectedStock =
+            _selectedVariant!.totalStock - inCartSelectedCount;
+      }
+    }
+
+    final bool canAdd = hasSelection && remainingSelectedStock > 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: AnamelColors.white,
@@ -574,10 +684,14 @@ class _ProductVariantSelectionDialogState
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.check_circle_outline_rounded,
+                          Icon(
+                            canAdd
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.error_outline_rounded,
                             size: 16,
-                            color: AnamelColors.sageDark,
+                            color: canAdd
+                                ? AnamelColors.sageDark
+                                : Colors.red.shade700,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -596,11 +710,15 @@ class _ProductVariantSelectionDialogState
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'السعر: ${_selectedVariant!.salePrice.toStringAsFixed(0)} دج${_selectedColorStock != null ? ' | المخزون: ${_selectedColorStock!.stock} قطعة' : ''}',
-                        style: const TextStyle(
+                        canAdd
+                            ? 'السعر: ${_selectedVariant!.salePrice.toStringAsFixed(0)} دج${_selectedColorStock != null ? ' | المتبقي: $remainingSelectedStock قطعة' : ''}${inCartSelectedCount > 0 ? ' (في السلة: $inCartSelectedCount)' : ''}'
+                            : 'السعر: ${_selectedVariant!.salePrice.toStringAsFixed(0)} دج | ${inCartSelectedCount > 0 ? 'تمت إضافة كامل المخزون المتوفر ($inCartSelectedCount) إلى السلة' : 'هذا الصنف غير متوفر حالياً في المخزون'}',
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: AnamelColors.sageDark,
+                          color: canAdd
+                              ? AnamelColors.sageDark
+                              : Colors.red.shade700,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -658,15 +776,19 @@ class _ProductVariantSelectionDialogState
               disabledBackgroundColor: AnamelColors.border,
               disabledForegroundColor: AnamelColors.brown.withOpacity(0.5),
             ),
-            onPressed: hasSelection
+            onPressed: canAdd
                 ? () =>
                     _confirmSelection(_selectedVariant!, _selectedColorStock)
                 : null,
             icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
             label: Text(
-              hasSelection
-                  ? 'إضافة إلى السلة (${_selectedVariant!.salePrice.toStringAsFixed(0)} دج)'
-                  : 'إضافة إلى السلة',
+              !hasSelection
+                  ? 'إضافة إلى السلة'
+                  : (canAdd
+                      ? 'إضافة إلى السلة (${_selectedVariant!.salePrice.toStringAsFixed(0)} دج)'
+                      : (inCartSelectedCount > 0
+                          ? 'الكمية كلها بالسلة'
+                          : 'نفذ المخزون')),
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,

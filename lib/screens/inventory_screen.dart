@@ -1,5 +1,5 @@
 import 'package:anamel_pos/models/product_model.dart';
-import 'package:anamel_pos/services/product_dao.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:anamel_pos/widgets/inventory/inventory_bottom_summary_bar.dart';

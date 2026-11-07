@@ -1,6 +1,6 @@
 import 'package:anamel_pos/models/account_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
-import 'package:anamel_pos/services/account_db.dart';
+import 'package:anamel_pos/services/database/account_db.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -40,6 +40,7 @@ class ReportPrintService {
 
     return (regular: regular, bold: bold);
   }
+
   /// طباعة تقرير مالي شامل للحسابات والأرصدة وحساب الفائدة
   static Future<void> printFinancialReport({
     required List<Account> accounts,
@@ -191,7 +192,8 @@ class ReportPrintService {
               final double cost =
                   (profitStats?['totalCost'] as num?)?.toDouble() ?? 0.0;
               final double grossProfit =
-                  (profitStats?['grossProfit'] as num?)?.toDouble() ?? (rev - cost);
+                  (profitStats?['grossProfit'] as num?)?.toDouble() ??
+                      (rev - cost);
               final double margin =
                   (profitStats?['profitMargin'] as num?)?.toDouble() ??
                       (rev > 0 ? (grossProfit / rev) * 100 : 0.0);
@@ -207,7 +209,8 @@ class ReportPrintService {
               final double invVal =
                   (inventoryStats?['totalValue'] as num?)?.toDouble() ?? 0.0;
               final double invProfit =
-                  (inventoryStats?['expectedProfit'] as num?)?.toDouble() ?? (invVal - invCost);
+                  (inventoryStats?['expectedProfit'] as num?)?.toDouble() ??
+                      (invVal - invCost);
               final double invMargin =
                   (inventoryStats?['profitMargin'] as num?)?.toDouble() ??
                       (invVal > 0 ? (invProfit / invVal) * 100 : 0.0);
@@ -261,7 +264,8 @@ class ReportPrintService {
                           ],
                         ),
                         pw.SizedBox(height: 8),
-                        pw.Divider(thickness: 0.5, color: PdfColor.fromHex('B4CFAE')),
+                        pw.Divider(
+                            thickness: 0.5, color: PdfColor.fromHex('B4CFAE')),
                         pw.SizedBox(height: 6),
                         pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceAround,

@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../models/product_model.dart';
 import '../anamel_colors.dart';
+import '../dialogs/sales_widgets/sales_invoices_list_dialog.dart';
 import 'product_thmbnail.dart';
 
 class CartPanel extends StatefulWidget {
@@ -19,6 +20,7 @@ class CartPanel extends StatefulWidget {
 
   final void Function(int index, double price)? onPriceChanged;
   final ValueChanged<double>? onDiscountChanged;
+  final VoidCallback? onSalesUpdated;
 
   const CartPanel({
     super.key,
@@ -30,6 +32,7 @@ class CartPanel extends StatefulWidget {
     this.onTotalChanged,
     this.onPriceChanged,
     this.onDiscountChanged,
+    this.onSalesUpdated,
   });
 
   @override
@@ -295,6 +298,18 @@ class _CartPanelState extends State<CartPanel> {
     });
   }
 
+  Future<void> _openSalesInvoicesDialog() async {
+    final hasChanges = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const SalesInvoicesListDialog(),
+    );
+
+    if (hasChanges == true) {
+      widget.onSalesUpdated?.call();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -315,12 +330,55 @@ class _CartPanelState extends State<CartPanel> {
                 child: Text(
                   'الفاتورة الحالية',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
                     color: AnamelColors.brown,
                   ),
                 ),
               ),
+              Tooltip(
+                message: 'سجل فواتير المبيعات',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _openSalesInvoicesDialog,
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AnamelColors.sage.withOpacity(.12),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: AnamelColors.sage.withOpacity(.35),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.receipt_long_rounded,
+                            size: 15,
+                            color: AnamelColors.sageDark,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'الفواتير',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AnamelColors.sageDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 9,

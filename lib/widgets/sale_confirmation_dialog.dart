@@ -1,7 +1,7 @@
 import 'package:anamel_pos/models/account_model.dart';
 import 'package:anamel_pos/models/customer_model.dart';
-import 'package:anamel_pos/services/account_db.dart';
-import 'package:anamel_pos/services/customer_db.dart';
+import 'package:anamel_pos/services/database/account_db.dart';
+import 'package:anamel_pos/services/database/customer_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 

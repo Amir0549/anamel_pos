@@ -1,6 +1,6 @@
 import 'package:anamel_pos/models/product_model.dart';
-import 'package:anamel_pos/services/product_dao.dart';
-import 'package:anamel_pos/services/product_helper.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
+import 'package:anamel_pos/services/database/product/product_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 

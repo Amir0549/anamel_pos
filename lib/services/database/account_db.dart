@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:anamel_pos/models/account_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
-import 'package:anamel_pos/services/transaction_db.dart';
+import 'package:anamel_pos/services/database/transaction_db.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';

@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:anamel_pos/models/sale_model.dart';
-import 'package:anamel_pos/services/product_helper.dart';
+import 'package:anamel_pos/services/database/customer_db.dart';
+import 'package:anamel_pos/services/database/product/product_helper.dart';
+import 'package:anamel_pos/services/database/transaction_db.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -533,7 +535,6 @@ class SaleDatabase {
     });
   }
 
-
   /// توليد رقم فاتورة فريد بصيغة: INV-YYYYMMDD-###
   ///
   /// مثال: INV-20261022-001
@@ -755,8 +756,7 @@ class SaleDatabase {
       args.add(endDate.toIso8601String());
     }
 
-    final where =
-        conditions.isNotEmpty ? conditions.join(' AND ') : null;
+    final where = conditions.isNotEmpty ? conditions.join(' AND ') : null;
 
     final salesMaps = await db.query(
       tableIndex,
@@ -829,7 +829,8 @@ class SaleDatabase {
         }
         await dailyDb.close();
       } catch (e) {
-        debugPrint('Error reading daily items for profit calculation from $dbPath: $e');
+        debugPrint(
+            'Error reading daily items for profit calculation from $dbPath: $e');
       }
     }
 
@@ -864,6 +865,17 @@ class SaleDatabase {
   }) async {
     try {
       _initFfiIfNeeded();
+      for (final cached in _dailyDbCache.values) {
+        if (cached.isOpen &&
+            p.normalize(cached.path) == p.normalize(dbFilePath)) {
+          final maps = await cached.query(
+            tableSaleItems,
+            where: 'sale_id = ?',
+            whereArgs: [dailyId],
+          );
+          return maps.map((m) => SaleItem.fromMap(m)).toList();
+        }
+      }
       final db = await openDatabase(dbFilePath, readOnly: true);
       final maps = await db.query(
         tableSaleItems,
@@ -1004,8 +1016,325 @@ class SaleDatabase {
   }
 
   // ===========================================================================
-  // DELETE OPERATIONS
+  // DELETE & UPDATE OPERATIONS
   // ===========================================================================
+
+  /// حذف فاتورة مبيعات واستعادة المخزون والتراجع عن الأثر المالي
+  Future<void> deleteSale(SaleModel sale) async {
+    final idxDb = await indexDatabase;
+    final indexRows = await idxDb.query(
+      tableIndex,
+      where: 'invoice_number = ?',
+      whereArgs: [sale.invoiceNumber],
+      limit: 1,
+    );
+
+    int? dailyId;
+    String? folderName;
+    String? dbFilePath;
+
+    if (indexRows.isNotEmpty) {
+      dailyId = indexRows.first['daily_id'] as int?;
+      folderName = indexRows.first['date_folder'] as String?;
+      dbFilePath = indexRows.first['db_file_path'] as String?;
+    }
+
+    // 1. استعادة كميات المنتجات إلى المخزون
+    List<SaleItem> itemsToRestore = sale.items;
+    if (itemsToRestore.isEmpty &&
+        dbFilePath != null &&
+        dailyId != null &&
+        File(dbFilePath).existsSync()) {
+      itemsToRestore = await _fetchSaleItems(
+        dbFilePath: dbFilePath,
+        dailyId: dailyId,
+      );
+    }
+    if (itemsToRestore.isNotEmpty) {
+      await restoreSaleItemsStock(itemsToRestore);
+    }
+
+    // 2. الحذف من قاعدة البيانات اليومية
+    if (dbFilePath != null &&
+        dailyId != null &&
+        File(dbFilePath).existsSync()) {
+      try {
+        _initFfiIfNeeded();
+        Database? dayDb;
+        bool shouldClose = false;
+        for (final cached in _dailyDbCache.values) {
+          if (cached.isOpen &&
+              p.normalize(cached.path) == p.normalize(dbFilePath)) {
+            dayDb = cached;
+            break;
+          }
+        }
+        if (dayDb == null) {
+          dayDb = await openDatabase(dbFilePath);
+          shouldClose = true;
+        }
+
+        await dayDb.delete(
+          tableSaleItems,
+          where: 'sale_id = ?',
+          whereArgs: [dailyId],
+        );
+        await dayDb.delete(
+          tableSales,
+          where: 'id = ?',
+          whereArgs: [dailyId],
+        );
+
+        if (shouldClose) {
+          await dayDb.close();
+        }
+      } catch (e) {
+        debugPrint('Error deleting sale from daily db: $e');
+      }
+    }
+
+    // 3. الحذف من الفهرس الذكي المركزي
+    await idxDb.delete(
+      tableIndex,
+      where: 'invoice_number = ?',
+      whereArgs: [sale.invoiceNumber],
+    );
+
+    // 4. تحديث سجل القسم اليومي في فهرس التقسيمات
+    if (folderName != null) {
+      final partRows = await idxDb.query(
+        tablePartitions,
+        where: 'date_str = ?',
+        whereArgs: [folderName],
+        limit: 1,
+      );
+      if (partRows.isNotEmpty) {
+        final prev = partRows.first;
+        final count =
+            ((prev['sales_count'] as int? ?? 1) - 1).clamp(0, 9999999);
+        final revenue = ((prev['total_revenue'] as num?)?.toDouble() ?? 0.0) -
+            sale.totalAmount;
+        final itemsSold =
+            ((prev['total_items_sold'] as int? ?? 0) - sale.totalQuantity)
+                .clamp(0, 9999999);
+        await idxDb.update(
+          tablePartitions,
+          {
+            'sales_count': count,
+            'total_revenue': revenue < 0 ? 0.0 : revenue,
+            'total_items_sold': itemsSold,
+            'last_updated': DateTime.now().toIso8601String(),
+          },
+          where: 'date_str = ?',
+          whereArgs: [folderName],
+        );
+      }
+    }
+
+    // 5. التراجع عن الحركة المالية في سجل الحساب
+    try {
+      await TransactionDatabase.instance.revertTransactionForInvoice(
+        invoiceNumber: sale.invoiceNumber,
+        accountId: sale.accountId,
+        amount: sale.totalAmount,
+      );
+    } catch (e) {
+      debugPrint('Error reverting transaction on delete: $e');
+    }
+
+    // 6. التراجع عن نقاط الزبون وإجمالي المشتريات
+    if (sale.customerId != null) {
+      try {
+        final customer =
+            await CustomerDatabase.getCustomerById(sale.customerId!);
+        if (customer != null) {
+          final pointsSettings = await CustomerDatabase.getPointsSettings();
+          final earnedPoints = pointsSettings.calculatePoints(sale.totalAmount);
+          final updatedCustomer = customer.copyWith(
+            points: (customer.points - earnedPoints).clamp(0, 9999999),
+            totalSpent: (customer.totalSpent - sale.totalAmount)
+                .clamp(0.0, double.infinity),
+          );
+          await CustomerDatabase.updateCustomer(updatedCustomer);
+        }
+      } catch (e) {
+        debugPrint('Error reverting customer stats: $e');
+      }
+    }
+  }
+
+  /// تحديث فاتورة مبيعات قائمة وتعديل المخزون والأثر المالي بدقة
+  Future<SaleModel> updateSale({
+    required SaleModel oldSale,
+    required SaleModel newSale,
+  }) async {
+    final idxDb = await indexDatabase;
+    final indexRows = await idxDb.query(
+      tableIndex,
+      where: 'invoice_number = ?',
+      whereArgs: [oldSale.invoiceNumber],
+      limit: 1,
+    );
+
+    int? dailyId;
+    String? folderName;
+    String? dbFilePath;
+
+    if (indexRows.isNotEmpty) {
+      dailyId = indexRows.first['daily_id'] as int?;
+      folderName = indexRows.first['date_folder'] as String?;
+      dbFilePath = indexRows.first['db_file_path'] as String?;
+    }
+
+    // 1. ضبط المخزون بدقة (استرجاع الكميات القديمة ثم خصم الكميات الجديدة)
+    await restoreSaleItemsStock(oldSale.items);
+    await deductSaleItemsStock(newSale.items);
+
+    // 2. تحديث قاعدة البيانات اليومية
+    if (dbFilePath != null &&
+        dailyId != null &&
+        File(dbFilePath).existsSync()) {
+      try {
+        _initFfiIfNeeded();
+        Database? dayDb;
+        bool shouldClose = false;
+        for (final cached in _dailyDbCache.values) {
+          if (cached.isOpen &&
+              p.normalize(cached.path) == p.normalize(dbFilePath)) {
+            dayDb = cached;
+            break;
+          }
+        }
+        if (dayDb == null) {
+          dayDb = await openDatabase(dbFilePath);
+          shouldClose = true;
+        }
+
+        await dayDb.update(
+          tableSales,
+          {
+            'customer_name': newSale.customerName,
+            'customer_id': newSale.customerId,
+            'subtotal': newSale.subtotal,
+            'discount_percent': newSale.discountPercent,
+            'discount_amount': newSale.discountAmount,
+            'total_amount': newSale.totalAmount,
+            'total_quantity': newSale.totalQuantity,
+            'note': newSale.note,
+          },
+          where: 'id = ?',
+          whereArgs: [dailyId],
+        );
+
+        // استبدال عناصر الفاتورة
+        await dayDb.delete(
+          tableSaleItems,
+          where: 'sale_id = ?',
+          whereArgs: [dailyId],
+        );
+        for (final item in newSale.items) {
+          await dayDb.insert(
+            tableSaleItems,
+            item.toMap(saleId: dailyId),
+          );
+        }
+
+        if (shouldClose) {
+          await dayDb.close();
+        }
+      } catch (e) {
+        debugPrint('Error updating sale in daily db: $e');
+      }
+    }
+
+    // 3. تحديث الفهرس الذكي المركزي
+    await idxDb.update(
+      tableIndex,
+      {
+        'customer_name': newSale.customerName,
+        'customer_id': newSale.customerId,
+        'subtotal': newSale.subtotal,
+        'discount_percent': newSale.discountPercent,
+        'discount_amount': newSale.discountAmount,
+        'total_amount': newSale.totalAmount,
+        'total_quantity': newSale.totalQuantity,
+        'note': newSale.note,
+      },
+      where: 'invoice_number = ?',
+      whereArgs: [oldSale.invoiceNumber],
+    );
+
+    // 4. تحديث سجل ملخص الأيام
+    if (folderName != null) {
+      final diffRevenue = newSale.totalAmount - oldSale.totalAmount;
+      final diffQty = newSale.totalQuantity - oldSale.totalQuantity;
+      final partRows = await idxDb.query(
+        tablePartitions,
+        where: 'date_str = ?',
+        whereArgs: [folderName],
+        limit: 1,
+      );
+      if (partRows.isNotEmpty) {
+        final prev = partRows.first;
+        final rev =
+            ((prev['total_revenue'] as num?)?.toDouble() ?? 0.0) + diffRevenue;
+        final qty = ((prev['total_items_sold'] as int? ?? 0) + diffQty)
+            .clamp(0, 9999999);
+        await idxDb.update(
+          tablePartitions,
+          {
+            'total_revenue': rev < 0 ? 0.0 : rev,
+            'total_items_sold': qty,
+            'last_updated': DateTime.now().toIso8601String(),
+          },
+          where: 'date_str = ?',
+          whereArgs: [folderName],
+        );
+      }
+    }
+
+    // 5. تحديث الحركة المالية ورصيد الحساب
+    final diffAmount = newSale.totalAmount - oldSale.totalAmount;
+    try {
+      await TransactionDatabase.instance.updateTransactionForInvoice(
+        invoiceNumber: oldSale.invoiceNumber,
+        accountId: newSale.accountId,
+        diffAmount: diffAmount,
+        note: newSale.note != null
+            ? 'فاتورة مبيعات ${newSale.invoiceNumber}: ${newSale.note}'
+            : null,
+      );
+    } catch (e) {
+      debugPrint('Error updating transaction on sale update: $e');
+    }
+
+    // 6. تحديث نقاط الزبون وإجمالي المشتريات
+    if (newSale.customerId != null && diffAmount.abs() > 0.001) {
+      try {
+        final customer =
+            await CustomerDatabase.getCustomerById(newSale.customerId!);
+        if (customer != null) {
+          final pointsSettings = await CustomerDatabase.getPointsSettings();
+          final diffPoints = pointsSettings.calculatePoints(diffAmount.abs());
+          final newPoints = diffAmount > 0
+              ? customer.points + diffPoints
+              : (customer.points - diffPoints).clamp(0, 9999999);
+          final newSpent =
+              (customer.totalSpent + diffAmount).clamp(0.0, double.infinity);
+          await CustomerDatabase.updateCustomer(
+            customer.copyWith(
+              points: newPoints,
+              totalSpent: newSpent,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error updating customer stats on sale update: $e');
+      }
+    }
+
+    return newSale;
+  }
 
   /// حذف سجلات الفهرس المرتبطة بحساب معين عند حذفه
   Future<void> deleteSalesForAccount(int accountId) async {

@@ -1,5 +1,5 @@
 import 'package:anamel_pos/models/product_model.dart';
-import 'package:anamel_pos/services/product_helper.dart';
+import 'package:anamel_pos/services/database/product/product_helper.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'product_variant_dao.dart';
 
@@ -584,7 +584,10 @@ class ProductDao {
   }
 
   Future<List<Product>> getByCategories(List<String> categoryNames) async {
-    final cleaned = categoryNames.where((c) => c.trim().isNotEmpty && c != 'الكل').toSet().toList();
+    final cleaned = categoryNames
+        .where((c) => c.trim().isNotEmpty && c != 'الكل')
+        .toSet()
+        .toList();
     if (cleaned.isEmpty) {
       return getAll();
     }
@@ -631,8 +634,6 @@ class ProductDao {
 
     return products;
   }
-
-
 
   // ===========================================================================
   // SEED INITIAL DATA

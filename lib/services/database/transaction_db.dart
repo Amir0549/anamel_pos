@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:anamel_pos/models/account_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
-import 'package:anamel_pos/services/account_db.dart';
+import 'package:anamel_pos/services/database/account_db.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -188,7 +188,8 @@ class TransactionDatabase {
       final columnNames = columns.map((c) => c['name'] as String).toSet();
 
       if (!columnNames.contains('account_name')) {
-        await db.execute('ALTER TABLE $tableIndex ADD COLUMN account_name TEXT');
+        await db
+            .execute('ALTER TABLE $tableIndex ADD COLUMN account_name TEXT');
       }
       if (!columnNames.contains('sale_id')) {
         await db.execute('ALTER TABLE $tableIndex ADD COLUMN sale_id INTEGER');
@@ -262,14 +263,17 @@ class TransactionDatabase {
   /// التأكد من وجود كافة أعمدة جدول الحركات اليومية في حال فتح قاعدة بيانات موجودة مسبقاً
   static Future<void> _ensureDailyTableSchema(Database db) async {
     try {
-      final columns = await db.rawQuery('PRAGMA table_info($tableTransactions)');
+      final columns =
+          await db.rawQuery('PRAGMA table_info($tableTransactions)');
       final columnNames = columns.map((c) => c['name'] as String).toSet();
 
       if (!columnNames.contains('account_name')) {
-        await db.execute('ALTER TABLE $tableTransactions ADD COLUMN account_name TEXT');
+        await db.execute(
+            'ALTER TABLE $tableTransactions ADD COLUMN account_name TEXT');
       }
       if (!columnNames.contains('sale_id')) {
-        await db.execute('ALTER TABLE $tableTransactions ADD COLUMN sale_id INTEGER');
+        await db.execute(
+            'ALTER TABLE $tableTransactions ADD COLUMN sale_id INTEGER');
       }
       if (!columnNames.contains('customer_or_supplier_id')) {
         await db.execute(
@@ -842,6 +846,154 @@ class TransactionDatabase {
       where: 'account_id = ? OR target_account_id = ?',
       whereArgs: [accountId, accountId],
     );
+  }
+
+  /// التراجع عن حركة مالية مرتبطة بفاتورة مبيعات عند حذفها
+  Future<void> revertTransactionForInvoice({
+    required String invoiceNumber,
+    required int accountId,
+    required double amount,
+  }) async {
+    // 1. خصم المبلغ من رصيد الحساب لإلغاء أثر عملية البيع
+    try {
+      final account = await AccountDatabase.instance.getAccount(accountId);
+      final newBalance = account.balance - amount;
+      await AccountDatabase.instance.updateAccount(
+        account.copyWith(balance: newBalance),
+      );
+    } catch (e) {
+      debugPrint(
+          'Error reverting account balance for invoice $invoiceNumber: $e');
+    }
+
+    // 2. حذف الحركة من الفهرس وقاعدة البيانات اليومية إن وجدت
+    try {
+      final idxDb = await indexDatabase;
+      final txRows = await idxDb.query(
+        tableIndex,
+        where: 'invoice_id = ?',
+        whereArgs: [invoiceNumber],
+      );
+
+      for (final row in txRows) {
+        final dailyId = row['daily_id'] as int?;
+        final dbFilePath = row['db_file_path'] as String?;
+        if (dailyId != null &&
+            dbFilePath != null &&
+            File(dbFilePath).existsSync()) {
+          try {
+            _initFfiIfNeeded();
+            Database? dDb;
+            bool shouldClose = false;
+            for (final cached in _dailyDbCache.values) {
+              if (cached.isOpen &&
+                  p.normalize(cached.path) == p.normalize(dbFilePath)) {
+                dDb = cached;
+                break;
+              }
+            }
+            if (dDb == null) {
+              dDb = await openDatabase(dbFilePath);
+              shouldClose = true;
+            }
+            await dDb.delete(tableTransactions,
+                where: 'id = ?', whereArgs: [dailyId]);
+            if (shouldClose) {
+              await dDb.close();
+            }
+          } catch (_) {}
+        }
+      }
+
+      await idxDb.delete(
+        tableIndex,
+        where: 'invoice_id = ?',
+        whereArgs: [invoiceNumber],
+      );
+    } catch (e) {
+      debugPrint('Error deleting transaction for invoice $invoiceNumber: $e');
+    }
+  }
+
+  /// تعديل الحركة المالية ومبلغها عند تعديل الفاتورة
+  Future<void> updateTransactionForInvoice({
+    required String invoiceNumber,
+    required int accountId,
+    required double diffAmount,
+    String? note,
+  }) async {
+    if (diffAmount.abs() > 0.0001) {
+      try {
+        final account = await AccountDatabase.instance.getAccount(accountId);
+        final newBalance = account.balance + diffAmount;
+        await AccountDatabase.instance.updateAccount(
+          account.copyWith(balance: newBalance),
+        );
+      } catch (e) {
+        debugPrint('Error adjusting account balance on update: $e');
+      }
+    }
+
+    try {
+      final idxDb = await indexDatabase;
+      final txRows = await idxDb.query(
+        tableIndex,
+        where: 'invoice_id = ?',
+        whereArgs: [invoiceNumber],
+      );
+
+      for (final row in txRows) {
+        final currentAmount = (row['amount'] as num?)?.toDouble() ?? 0.0;
+        final newTotal = currentAmount + diffAmount;
+        final dailyId = row['daily_id'] as int?;
+        final dbFilePath = row['db_file_path'] as String?;
+
+        if (dailyId != null &&
+            dbFilePath != null &&
+            File(dbFilePath).existsSync()) {
+          try {
+            _initFfiIfNeeded();
+            Database? dDb;
+            bool shouldClose = false;
+            for (final cached in _dailyDbCache.values) {
+              if (cached.isOpen &&
+                  p.normalize(cached.path) == p.normalize(dbFilePath)) {
+                dDb = cached;
+                break;
+              }
+            }
+            if (dDb == null) {
+              dDb = await openDatabase(dbFilePath);
+              shouldClose = true;
+            }
+            await dDb.update(
+              tableTransactions,
+              {
+                'amount': newTotal,
+                if (note != null) 'note': note,
+              },
+              where: 'id = ?',
+              whereArgs: [dailyId],
+            );
+            if (shouldClose) {
+              await dDb.close();
+            }
+          } catch (_) {}
+        }
+
+        await idxDb.update(
+          tableIndex,
+          {
+            'amount': newTotal,
+            if (note != null) 'note': note,
+          },
+          where: 'invoice_id = ?',
+          whereArgs: [invoiceNumber],
+        );
+      }
+    } catch (e) {
+      debugPrint('Error updating transaction for invoice $invoiceNumber: $e');
+    }
   }
 
   /// إغلاق كافة الاتصالات

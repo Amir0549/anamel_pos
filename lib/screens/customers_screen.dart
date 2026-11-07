@@ -1,5 +1,5 @@
 import 'package:anamel_pos/models/customer_model.dart';
-import 'package:anamel_pos/services/customer_db.dart';
+import 'package:anamel_pos/services/database/customer_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/customer/customer_barcode_dialog.dart';
 import 'package:anamel_pos/widgets/customer/customer_form_dialog.dart';

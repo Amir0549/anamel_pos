@@ -1,5 +1,5 @@
 import 'package:anamel_pos/models/user_model.dart';
-import 'package:anamel_pos/services/database_helper.dart';
+import 'package:anamel_pos/services/database/database_helper.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 
@@ -254,7 +254,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
                   children: [
                     Expanded(
                       child: TextButton(
-                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        onPressed:
+                            _isLoading ? null : () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -377,7 +378,8 @@ class _EditUserDialogState extends State<EditUserDialog> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'لا يمكن تحويل هذا الحساب لبائع لأنه المدير الوحيد في النظام';
+            _errorMessage =
+                'لا يمكن تحويل هذا الحساب لبائع لأنه المدير الوحيد في النظام';
           });
         }
         return;
@@ -594,7 +596,8 @@ class _EditUserDialogState extends State<EditUserDialog> {
                   children: [
                     Expanded(
                       child: TextButton(
-                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        onPressed:
+                            _isLoading ? null : () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -907,7 +910,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                   children: [
                     Expanded(
                       child: TextButton(
-                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        onPressed:
+                            _isLoading ? null : () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(

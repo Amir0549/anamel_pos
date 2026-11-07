@@ -12,6 +12,12 @@ class CategoryBar extends StatefulWidget {
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
 
+  // فلترة السعر
+  final double? minPrice;
+  final double? maxPrice;
+  final VoidCallback? onOpenPriceFilter;
+  final VoidCallback? onClearPriceFilter;
+
   const CategoryBar({
     super.key,
     required this.selectedCategories,
@@ -20,6 +26,10 @@ class CategoryBar extends StatefulWidget {
     required this.onOpenFilter,
     required this.searchQuery,
     required this.onSearchChanged,
+    this.minPrice,
+    this.maxPrice,
+    this.onOpenPriceFilter,
+    this.onClearPriceFilter,
   });
 
   @override
@@ -33,6 +43,20 @@ class _CategoryBarState extends State<CategoryBar> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  bool get _hasPriceFilter =>
+      widget.minPrice != null || widget.maxPrice != null;
+
+  String get _priceFilterSummary {
+    if (widget.minPrice != null && widget.maxPrice != null) {
+      return '${widget.minPrice!.round()} - ${widget.maxPrice!.round()} دج';
+    } else if (widget.minPrice != null) {
+      return 'من ${widget.minPrice!.round()} دج';
+    } else if (widget.maxPrice != null) {
+      return 'حتى ${widget.maxPrice!.round()} دج';
+    }
+    return '';
   }
 
   @override
@@ -116,7 +140,79 @@ class _CategoryBarState extends State<CategoryBar> {
           ),
 
           // -------------------------------------------------------------------
-          // CATEGORIES
+          // PRICE FILTER
+          // -------------------------------------------------------------------
+          if (widget.onOpenPriceFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onOpenPriceFilter,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: _hasPriceFilter
+                          ? AnamelColors.sage.withOpacity(0.18)
+                          : AnamelColors.white,
+                      border: Border.all(
+                        color: _hasPriceFilter
+                            ? AnamelColors.sage
+                            : AnamelColors.border,
+                        width: 1.2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.payments_outlined,
+                          size: 20,
+                          color: _hasPriceFilter
+                              ? AnamelColors.sageDark
+                              : AnamelColors.brown,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _hasPriceFilter
+                              ? _priceFilterSummary
+                              : 'فلترة بحسب السعر',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _hasPriceFilter
+                                ? AnamelColors.sageDark
+                                : AnamelColors.brown,
+                          ),
+                        ),
+                        if (_hasPriceFilter &&
+                            widget.onClearPriceFilter != null) ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: widget.onClearPriceFilter,
+                            borderRadius: BorderRadius.circular(10),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: AnamelColors.sageDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // -------------------------------------------------------------------
+          // CATEGORIES & PRICE CHIPS
           // -------------------------------------------------------------------
 
           Expanded(
@@ -131,6 +227,44 @@ class _CategoryBarState extends State<CategoryBar> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(bottom: 6),
                 children: [
+                  if (_hasPriceFilter)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: InputChip(
+                        avatar: const Icon(
+                          Icons.payments_outlined,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                        label: Text('السعر: $_priceFilterSummary'),
+                        selected: true,
+                        showCheckmark: false,
+                        selectedColor: AnamelColors.sageDark,
+                        backgroundColor: AnamelColors.sageDark,
+                        side: const BorderSide(
+                          color: AnamelColors.sageDark,
+                        ),
+                        deleteIcon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        onDeleted: widget.onClearPriceFilter,
+                        onPressed: widget.onOpenPriceFilter,
+                        labelStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   if (!hasSelection)
                     Padding(
                       padding: const EdgeInsets.only(left: 8),

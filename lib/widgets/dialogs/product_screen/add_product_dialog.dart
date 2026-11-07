@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import '../../../models/product_model.dart';
-import '../../../services/product_dao.dart';
+import '../../../services/database/product/product_dao.dart';
 import '../../anamel_colors.dart';
 import 'dart:io';
 

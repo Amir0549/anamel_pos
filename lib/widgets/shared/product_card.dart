@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
+  final int? inCartCount;
 
   const ProductCard({
     super.key,
     required this.product,
     required this.onTap,
+    this.inCartCount,
   });
 
   String get _priceText {
@@ -99,23 +101,45 @@ class ProductCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AnamelColors.ivory,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'مخزون ${product.totalStock}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: AnamelColors.brown,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final inCart = inCartCount ?? 0;
+                      final remaining = (product.totalStock - inCart).clamp(0, 999999);
+                      final isOut = product.totalStock <= 0 || (inCartCount != null && remaining <= 0);
+
+                      String badgeText;
+                      if (inCartCount == null) {
+                        badgeText = isOut ? 'نفذ المخزون' : 'مخزون ${product.totalStock}';
+                      } else if (inCart > 0) {
+                        badgeText = remaining > 0
+                            ? 'متبقي $remaining ($inCart بالسلة)'
+                            : 'في السلة ($inCart) - نفذ';
+                      } else {
+                        badgeText = isOut ? 'نفذ المخزون' : 'مخزون $remaining';
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isOut ? Colors.red.shade50 : AnamelColors.ivory,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isOut
+                              ? Border.all(color: Colors.red.shade200, width: 0.8)
+                              : null,
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isOut ? Colors.red.shade700 : AnamelColors.brown,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

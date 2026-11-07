@@ -1,10 +1,10 @@
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/models/sale_model.dart';
 import 'package:anamel_pos/models/transaction_model.dart';
-import 'package:anamel_pos/services/customer_db.dart';
-import 'package:anamel_pos/services/product_dao.dart';
-import 'package:anamel_pos/services/sale_db.dart';
-import 'package:anamel_pos/services/transaction_db.dart';
+import 'package:anamel_pos/services/database/customer_db.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
+import 'package:anamel_pos/services/database/sale_db.dart';
+import 'package:anamel_pos/services/database/transaction_db.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/sale_confirmation_dialog.dart';
 import 'package:anamel_pos/widgets/shared/product_card.dart';
@@ -13,6 +13,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../services/receipt_print_service.dart';
 import '../widgets/dialogs/sales_widgets/category_filter_dialog.dart';
+import '../widgets/dialogs/sales_widgets/price_filter_dialog.dart';
 import '../widgets/dialogs/sales_widgets/receipt_paper_size_dialog.dart';
 import '../widgets/dialogs/sales_widgets/receipt_print_confirm_dialog.dart';
 import '../widgets/dialogs/sales_widgets/variant_selection_dialog.dart';
@@ -69,6 +70,12 @@ class _SalesScreenState extends State<SalesScreen> {
   double _discountPercent = 0;
 
   String _searchQuery = '';
+
+  // ============================================================
+  // فلترة حسب السعر
+  // ============================================================
+  double? _minPrice;
+  double? _maxPrice;
 
   void _onSearchChanged(String query) {
     setState(() {
@@ -243,19 +250,36 @@ class _SalesScreenState extends State<SalesScreen> {
     await _loadProducts();
   }
 
+  bool _matchesPrice(Product product) {
+    if (_minPrice == null && _maxPrice == null) return true;
+
+    if (product.variants.isNotEmpty) {
+      return product.variants.any((v) {
+        if (_minPrice != null && v.salePrice < _minPrice!) return false;
+        if (_maxPrice != null && v.salePrice > _maxPrice!) return false;
+        return true;
+      });
+    } else {
+      if (_minPrice != null && product.salePrice < _minPrice!) return false;
+      if (_maxPrice != null && product.salePrice > _maxPrice!) return false;
+      return true;
+    }
+  }
+
   Future<void> _loadProducts() async {
     if (widget.products != null) {
       final query = _searchQuery.toLowerCase();
 
       final filteredProducts = widget.products!.where((product) {
-        if (query.isEmpty) {
-          return true;
+        if (query.isNotEmpty) {
+          final name = product.name.toLowerCase();
+          final barcode = product.barcode.toLowerCase();
+          if (!name.contains(query) && !barcode.contains(query)) {
+            return false;
+          }
         }
 
-        final name = product.name.toLowerCase();
-        final barcode = product.barcode.toLowerCase();
-
-        return name.contains(query) || barcode.contains(query);
+        return _matchesPrice(product);
       }).toList();
 
       if (mounted) {
@@ -310,9 +334,13 @@ class _SalesScreenState extends State<SalesScreen> {
         }
       }
 
+      final priceFiltered = (_minPrice == null && _maxPrice == null)
+          ? prods
+          : prods.where(_matchesPrice).toList();
+
       if (mounted) {
         setState(() {
-          _products = prods;
+          _products = priceFiltered;
           _isLoading = false;
         });
       }
@@ -384,10 +412,93 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 
   // ============================================================
-  // PRODUCT SELECTION
+  // PRICE FILTER
   // ============================================================
 
+  Future<void> _openPriceFilterDialog() async {
+    final result = await showDialog<PriceFilterResult>(
+      context: context,
+      builder: (ctx) => PriceFilterDialog(
+        initialMinPrice: _minPrice,
+        initialMaxPrice: _maxPrice,
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _minPrice = result.minPrice;
+        _maxPrice = result.maxPrice;
+      });
+
+      _loadProducts();
+    }
+  }
+
+  void _clearPriceFilter() {
+    setState(() {
+      _minPrice = null;
+      _maxPrice = null;
+    });
+
+    _loadProducts();
+  }
+
+  // ============================================================
+  // PRODUCT SELECTION & STOCK VALIDATION
+  // ============================================================
+
+  int _getCartCountForProduct(int productId) {
+    int count = 0;
+    for (final item in widget.cart) {
+      if (item.id == productId) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  int _getCartCountForItem({
+    required int productId,
+    int? variantId,
+    int? colorId,
+  }) {
+    int count = 0;
+    for (final item in widget.cart) {
+      if (item.id != productId) continue;
+
+      final variant = item.variants.isNotEmpty ? item.variants.first : null;
+      final color = (variant != null && variant.colors.isNotEmpty)
+          ? variant.colors.first
+          : null;
+
+      if (variantId != null && variant?.id != variantId) continue;
+      if (colorId != null && color?.id != colorId) continue;
+
+      count++;
+    }
+    return count;
+  }
+
   Future<void> _onProductSelected(Product product) async {
+    final inCartCount = _getCartCountForProduct(product.id);
+    final remainingTotalStock = product.totalStock - inCartCount;
+
+    if (product.totalStock <= 0 || remainingTotalStock <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'لا يمكن إضافة المزيد من "${product.name}"، المخزون المتوفر (${product.totalStock}) تم استنفاده بالكامل في السلة.',
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
     if (product.variants.isEmpty) {
       widget.onAdd(product);
       return;
@@ -398,10 +509,41 @@ class _SalesScreenState extends State<SalesScreen> {
       barrierDismissible: true,
       builder: (ctx) => ProductVariantSelectionDialog(
         product: product,
+        cart: widget.cart,
       ),
     );
 
     if (selectedProduct != null && mounted) {
+      final variant = selectedProduct.variants.isNotEmpty
+          ? selectedProduct.variants.first
+          : null;
+      final color = (variant != null && variant.colors.isNotEmpty)
+          ? variant.colors.first
+          : null;
+
+      final currentInCart = _getCartCountForItem(
+        productId: selectedProduct.id,
+        variantId: variant?.id,
+        colorId: color?.id,
+      );
+
+      final maxStock =
+          color?.stock ?? variant?.totalStock ?? selectedProduct.totalStock;
+
+      if (currentInCart >= maxStock) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'لا يمكن إضافة المزيد من "${selectedProduct.name}"، المخزون المتوفر لهذا الصنف ($maxStock) تم استنفاده بالكامل في السلة.',
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
       widget.onAdd(selectedProduct);
     }
   }
@@ -674,6 +816,10 @@ class _SalesScreenState extends State<SalesScreen> {
                 onOpenFilter: _openFilterDialog,
                 searchQuery: _searchQuery,
                 onSearchChanged: _onSearchChanged,
+                minPrice: _minPrice,
+                maxPrice: _maxPrice,
+                onOpenPriceFilter: _openPriceFilterDialog,
+                onClearPriceFilter: _clearPriceFilter,
               ),
               const SizedBox(height: 15),
               Expanded(
@@ -688,20 +834,40 @@ class _SalesScreenState extends State<SalesScreen> {
                         ? Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
+                              children: [
+                                const Icon(
                                   Icons.inventory_2_outlined,
                                   size: 46,
                                   color: AnamelColors.sand,
                                 ),
-                                SizedBox(height: 12),
+                                const SizedBox(height: 12),
                                 Text(
-                                  'لا توجد منتجات في هذا التصنيف',
-                                  style: TextStyle(
+                                  (_minPrice != null || _maxPrice != null)
+                                      ? 'لا توجد منتجات تطابق نطاق السعر المحدد'
+                                      : 'لا توجد منتجات في هذا التصنيف',
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: AnamelColors.brown,
                                   ),
                                 ),
+                                if (_minPrice != null || _maxPrice != null) ...[
+                                  const SizedBox(height: 10),
+                                  TextButton.icon(
+                                    onPressed: _clearPriceFilter,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16,
+                                      color: AnamelColors.sageDark,
+                                    ),
+                                    label: const Text(
+                                      'إلغاء فلترة السعر',
+                                      style: TextStyle(
+                                        color: AnamelColors.sageDark,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           )
@@ -714,12 +880,17 @@ class _SalesScreenState extends State<SalesScreen> {
                               mainAxisSpacing: 13,
                             ),
                             itemCount: _products.length,
-                            itemBuilder: (_, i) => ProductCard(
-                              product: _products[i],
-                              onTap: () => _onProductSelected(_products[i]),
-                            ).animate().fadeIn().slideY(
-                                  begin: 0.8,
-                                ),
+                            itemBuilder: (_, i) {
+                              final product = _products[i];
+                              final inCart = _getCartCountForProduct(product.id);
+                              return ProductCard(
+                                product: product,
+                                inCartCount: inCart,
+                                onTap: () => _onProductSelected(product),
+                              ).animate().fadeIn().slideY(
+                                    begin: 0.8,
+                                  );
+                            },
                           ),
               ),
             ],
@@ -734,6 +905,7 @@ class _SalesScreenState extends State<SalesScreen> {
             onRemove: _onCartItemRemoved,
             onCompleteSale: _completeSale,
             isCompletingSale: _isCompletingSale,
+            onSalesUpdated: _loadProducts,
 
             // السعر المعدل
             onPriceChanged: _onPriceChanged,

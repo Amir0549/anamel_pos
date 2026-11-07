@@ -1,7 +1,7 @@
 import 'package:anamel_pos/models/points_settings_model.dart';
 import 'package:anamel_pos/models/user_model.dart';
-import 'package:anamel_pos/services/customer_db.dart';
-import 'package:anamel_pos/services/database_helper.dart';
+import 'package:anamel_pos/services/database/customer_db.dart';
+import 'package:anamel_pos/services/database/database_helper.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/user_form_dialog.dart';
 import 'package:flutter/material.dart';

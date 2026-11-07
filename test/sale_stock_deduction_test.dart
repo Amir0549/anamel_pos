@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:anamel_pos/models/sale_model.dart';
-import 'package:anamel_pos/services/product_color_stock_dao.dart';
-import 'package:anamel_pos/services/product_helper.dart';
-import 'package:anamel_pos/services/sale_db.dart';
+import 'package:anamel_pos/services/database/product/product_color_stock_dao.dart';
+import 'package:anamel_pos/services/database/product/product_helper.dart';
+import 'package:anamel_pos/services/database/sale_db.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -22,7 +22,8 @@ void main() {
     });
   });
 
-  test('Selling items via SaleDatabase deducts stock from product_variant_colors',
+  test(
+      'Selling items via SaleDatabase deducts stock from product_variant_colors',
       () async {
     final anamelDb = await AnamelDatabase.instance.database;
 

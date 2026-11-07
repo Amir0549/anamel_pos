@@ -1,7 +1,7 @@
 import 'package:anamel_pos/models/product_model.dart';
 import 'package:anamel_pos/screens/inventory_screen.dart';
 import 'package:anamel_pos/screens/purchase_screen.dart';
-import 'package:anamel_pos/services/product_dao.dart';
+import 'package:anamel_pos/services/database/product/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/dialogs/product_screen/manage_categories_dialog.dart';
 import 'package:anamel_pos/widgets/dialogs/product_screen/product_details_dialog.dart';

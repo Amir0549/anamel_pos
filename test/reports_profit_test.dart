@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:anamel_pos/models/sale_model.dart';
-import 'package:anamel_pos/services/product_helper.dart';
-import 'package:anamel_pos/services/sale_db.dart';
+import 'package:anamel_pos/services/database/product/product_helper.dart';
+import 'package:anamel_pos/services/database/sale_db.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

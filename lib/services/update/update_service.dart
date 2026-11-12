@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../models/update_model.dart';
+import '../../models/update_model.dart';
 
 class UpdateService {
   static const String updateUrl =

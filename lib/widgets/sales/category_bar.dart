@@ -18,6 +18,10 @@ class CategoryBar extends StatefulWidget {
   final VoidCallback? onOpenPriceFilter;
   final VoidCallback? onClearPriceFilter;
 
+  final String? variantFilterSummary;
+  final VoidCallback? onOpenVariantFilter;
+  final VoidCallback? onClearVariantFilter;
+
   const CategoryBar({
     super.key,
     required this.selectedCategories,
@@ -30,6 +34,9 @@ class CategoryBar extends StatefulWidget {
     this.maxPrice,
     this.onOpenPriceFilter,
     this.onClearPriceFilter,
+    this.variantFilterSummary,
+    this.onOpenVariantFilter,
+    this.onClearVariantFilter,
   });
 
   @override
@@ -47,6 +54,8 @@ class _CategoryBarState extends State<CategoryBar> {
 
   bool get _hasPriceFilter =>
       widget.minPrice != null || widget.maxPrice != null;
+
+  bool get _hasVariantFilter => widget.variantFilterSummary != null;
 
   String get _priceFilterSummary {
     if (widget.minPrice != null && widget.maxPrice != null) {
@@ -99,17 +108,6 @@ class _CategoryBarState extends State<CategoryBar> {
                         color: hasSelection
                             ? AnamelColors.sageDark
                             : AnamelColors.brown,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'فلترة بحسب التصنيف',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: hasSelection
-                              ? AnamelColors.sageDark
-                              : AnamelColors.brown,
-                        ),
                       ),
                       if (hasSelection) ...[
                         const SizedBox(width: 8),
@@ -175,19 +173,6 @@ class _CategoryBarState extends State<CategoryBar> {
                               ? AnamelColors.sageDark
                               : AnamelColors.brown,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _hasPriceFilter
-                              ? _priceFilterSummary
-                              : 'فلترة بحسب السعر',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: _hasPriceFilter
-                                ? AnamelColors.sageDark
-                                : AnamelColors.brown,
-                          ),
-                        ),
                         if (_hasPriceFilter &&
                             widget.onClearPriceFilter != null) ...[
                           const SizedBox(width: 6),
@@ -211,8 +196,46 @@ class _CategoryBarState extends State<CategoryBar> {
               ),
             ),
 
+          if (widget.onOpenVariantFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 8),
+              child: Tooltip(
+                message: 'فلترة بحسب العمر أو المقاس',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: widget.onOpenVariantFilter,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: _hasVariantFilter
+                            ? AnamelColors.sage.withOpacity(0.18)
+                            : AnamelColors.white,
+                        border: Border.all(
+                          color: _hasVariantFilter
+                              ? AnamelColors.sage
+                              : AnamelColors.border,
+                          width: 1.2,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.straighten_rounded,
+                        size: 20,
+                        color: _hasVariantFilter
+                            ? AnamelColors.sageDark
+                            : AnamelColors.brown,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // -------------------------------------------------------------------
-          // CATEGORIES & PRICE CHIPS
+          // ACTIVE FILTER CHIPS
           // -------------------------------------------------------------------
 
           Expanded(
@@ -227,6 +250,42 @@ class _CategoryBarState extends State<CategoryBar> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(bottom: 6),
                 children: [
+                  if (_hasVariantFilter)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: InputChip(
+                        avatar: const Icon(
+                          Icons.straighten_rounded,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                        label: Text(widget.variantFilterSummary!),
+                        selected: true,
+                        showCheckmark: false,
+                        selectedColor: AnamelColors.sageDark,
+                        backgroundColor: AnamelColors.sageDark,
+                        side: const BorderSide(color: AnamelColors.sageDark),
+                        deleteIcon: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        onDeleted: widget.onClearVariantFilter,
+                        onPressed: widget.onOpenVariantFilter,
+                        labelStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   if (_hasPriceFilter)
                     Padding(
                       padding: const EdgeInsets.only(left: 8),

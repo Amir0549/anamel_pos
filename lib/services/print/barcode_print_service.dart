@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:win32/win32.dart';
 
-import '../models/customer_model.dart';
-import '../models/product_model.dart';
+import '../../models/customer_model.dart';
+import '../../models/product_model.dart';
 import 'product_barcode_print_service.dart';
 
 enum CustomerLabelSize {
@@ -21,9 +21,8 @@ extension CustomerLabelSizeExtension on CustomerLabelSize {
   double get heightMm => this == CustomerLabelSize.mm40x20 ? 20 : 30;
   int get widthPx => this == CustomerLabelSize.mm40x20 ? 320 : 400;
   int get heightPx => this == CustomerLabelSize.mm40x20 ? 160 : 240;
-  String get displayName => this == CustomerLabelSize.mm40x20
-      ? '40 × 20 مم'
-      : '50 × 30 مم';
+  String get displayName =>
+      this == CustomerLabelSize.mm40x20 ? '40 × 20 مم' : '50 × 30 مم';
 }
 
 class BarcodePrintService {

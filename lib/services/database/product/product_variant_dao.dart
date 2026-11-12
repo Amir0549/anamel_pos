@@ -25,6 +25,7 @@ class ProductVariantDao {
     required int productId,
     DatabaseExecutor? executor,
   }) async {
+    _validateSizeData(variant);
     if (variant.salePrice < 0) {
       throw ArgumentError('Sale price cannot be negative.');
     }
@@ -48,6 +49,9 @@ class ProductVariantDao {
         'age': age,
         'sale_price': variant.salePrice,
         'purchase_price': variant.purchasePrice,
+        'size_type': variant.sizeType?.databaseValue,
+        'value_from': variant.valueFrom,
+        'value_to': variant.valueTo,
       },
     );
 
@@ -62,6 +66,29 @@ class ProductVariantDao {
     return variantId;
   }
 
+  void _validateSizeData(ProductVariant variant) {
+    // جميع حقول القياس اختيارية.
+    if (variant.valueFrom != null && variant.valueFrom! < 0) {
+      throw ArgumentError(
+        'Size starting value cannot be negative.',
+      );
+    }
+
+    if (variant.valueTo != null && variant.valueTo! < 0) {
+      throw ArgumentError(
+        'Size ending value cannot be negative.',
+      );
+    }
+
+    if (variant.valueFrom != null &&
+        variant.valueTo != null &&
+        variant.valueTo! < variant.valueFrom!) {
+      throw ArgumentError(
+        'Size ending value cannot be less than starting value.',
+      );
+    }
+  }
+
   // ===========================================================================
   // UPDATE
   // ===========================================================================
@@ -71,6 +98,8 @@ class ProductVariantDao {
     required int productId,
     DatabaseExecutor? executor,
   }) async {
+    _validateSizeData(variant);
+
     if (variant.salePrice < 0) {
       throw ArgumentError('Sale price cannot be negative.');
     }
@@ -94,13 +123,19 @@ class ProductVariantDao {
         age = ?,
         sale_price = ?,
         purchase_price = ?,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = CURRENT_TIMESTAMP,
+        size_type = ?,
+        value_from = ?,
+        value_to = ?
       WHERE id = ? AND product_id = ?
       ''',
       [
         age,
         variant.salePrice,
         variant.purchasePrice,
+        variant.sizeType?.databaseValue,
+        variant.valueFrom,
+        variant.valueTo,
         variant.id,
         productId,
       ],
@@ -348,6 +383,11 @@ class ProductVariantDao {
       salePrice: (map['sale_price'] as num).toDouble(),
       purchasePrice: (map['purchase_price'] as num).toDouble(),
       colors: colors,
+      sizeType: VariantSizeType.fromDatabase(
+        map['size_type'] as String?,
+      ),
+      valueFrom: (map['value_from'] as num?)?.toDouble(),
+      valueTo: (map['value_to'] as num?)?.toDouble(),
     );
   }
 }

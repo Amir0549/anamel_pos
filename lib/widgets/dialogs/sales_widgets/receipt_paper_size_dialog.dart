@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/receipt_print_service.dart';
+import '../../../services/print/receipt_print_service.dart';
 import '../../anamel_colors.dart';
 
 /// ديالوغ لتحديد مقاس ورق الفاتورة قبل الطباعة
@@ -177,9 +177,8 @@ class _ReceiptPaperSizeDialogState extends State<ReceiptPaperSizeDialog> {
                           size.displayName,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: isSelected
-                                ? FontWeight.w800
-                                : FontWeight.w600,
+                            fontWeight:
+                                isSelected ? FontWeight.w800 : FontWeight.w600,
                             color: isSelected
                                 ? AnamelColors.sageDark
                                 : AnamelColors.brown,
@@ -226,4 +225,3 @@ class _ReceiptPaperSizeDialogState extends State<ReceiptPaperSizeDialog> {
     );
   }
 }
-

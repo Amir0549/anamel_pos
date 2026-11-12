@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/sale_model.dart';
-import '../../../services/receipt_print_service.dart';
+import '../../../services/print/receipt_print_service.dart';
 import '../../../services/database/sale_db.dart';
 import '../../anamel_colors.dart';
 import 'edit_sale_invoice_dialog.dart';
@@ -114,8 +114,7 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
 
     return _allSales.where((s) {
       final matchInv = s.invoiceNumber.toLowerCase().contains(q);
-      final matchCust =
-          (s.customerName ?? '').toLowerCase().contains(q);
+      final matchCust = (s.customerName ?? '').toLowerCase().contains(q);
       final matchAcc = s.accountName.toLowerCase().contains(q);
       final matchNote = (s.note ?? '').toLowerCase().contains(q);
       return matchInv || matchCust || matchAcc || matchNote;
@@ -235,11 +234,13 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           backgroundColor: AnamelColors.white,
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 26),
+              Icon(Icons.warning_amber_rounded,
+                  color: Colors.redAccent, size: 26),
               SizedBox(width: 10),
               Text(
                 'تأكيد حذف الفاتورة',
@@ -288,7 +289,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text(
                 'إلغاء',
-                style: TextStyle(color: AnamelColors.brown, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: AnamelColors.brown, fontWeight: FontWeight.w600),
               ),
             ),
             FilledButton(
@@ -318,7 +320,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم حذف الفاتورة ${sale.invoiceNumber} واسترجاع المخزون'),
+              content: Text(
+                  'تم حذف الفاتورة ${sale.invoiceNumber} واسترجاع المخزون'),
               backgroundColor: AnamelColors.sageDark,
             ),
           );
@@ -346,7 +349,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           backgroundColor: AnamelColors.white,
           child: Container(
             width: 880,
@@ -396,7 +400,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context, _hasChanges),
-                      icon: const Icon(Icons.close_rounded, color: AnamelColors.brown),
+                      icon: const Icon(Icons.close_rounded,
+                          color: AnamelColors.brown),
                       tooltip: 'إغلاق',
                     ),
                   ],
@@ -450,12 +455,14 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _currentFilter == InvoiceDateFilter.custom
-                                      ? AnamelColors.sageDark
-                                      : AnamelColors.ivory,
+                                  color:
+                                      _currentFilter == InvoiceDateFilter.custom
+                                          ? AnamelColors.sageDark
+                                          : AnamelColors.ivory,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: _currentFilter == InvoiceDateFilter.custom
+                                    color: _currentFilter ==
+                                            InvoiceDateFilter.custom
                                         ? AnamelColors.sageDark
                                         : AnamelColors.border,
                                   ),
@@ -466,13 +473,15 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                     Icon(
                                       Icons.date_range_rounded,
                                       size: 15,
-                                      color: _currentFilter == InvoiceDateFilter.custom
+                                      color: _currentFilter ==
+                                              InvoiceDateFilter.custom
                                           ? Colors.white
                                           : AnamelColors.brown,
                                     ),
                                     const SizedBox(width: 5),
                                     Text(
-                                      _currentFilter == InvoiceDateFilter.custom &&
+                                      _currentFilter ==
+                                                  InvoiceDateFilter.custom &&
                                               _customStartDate != null &&
                                               _customEndDate != null
                                           ? '${_customStartDate!.day}/${_customStartDate!.month} - ${_customEndDate!.day}/${_customEndDate!.month}'
@@ -480,7 +489,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
-                                        color: _currentFilter == InvoiceDateFilter.custom
+                                        color: _currentFilter ==
+                                                InvoiceDateFilter.custom
                                             ? Colors.white
                                             : AnamelColors.brown,
                                       ),
@@ -524,11 +534,13 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: AnamelColors.border),
+                            borderSide:
+                                const BorderSide(color: AnamelColors.border),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: AnamelColors.border),
+                            borderSide:
+                                const BorderSide(color: AnamelColors.border),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -547,7 +559,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
 
                 // Statistics Summary Banner
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: AnamelColors.sand.withOpacity(.25),
                     borderRadius: BorderRadius.circular(12),
@@ -604,7 +617,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
-                                      color: AnamelColors.brown.withOpacity(0.6),
+                                      color:
+                                          AnamelColors.brown.withOpacity(0.6),
                                     ),
                                   ),
                                 ],
@@ -616,8 +630,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                   const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final sale = filtered[index];
-                                final isExpanded =
-                                    _expandedInvoices.contains(sale.invoiceNumber);
+                                final isExpanded = _expandedInvoices
+                                    .contains(sale.invoiceNumber);
 
                                 return Container(
                                   decoration: BoxDecoration(
@@ -625,7 +639,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: isExpanded
-                                          ? AnamelColors.sageDark.withOpacity(0.5)
+                                          ? AnamelColors.sageDark
+                                              .withOpacity(0.5)
                                           : AnamelColors.border,
                                     ),
                                     boxShadow: [
@@ -645,7 +660,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                           children: [
                                             // Invoice Number Badge
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                 horizontal: 9,
                                                 vertical: 5,
                                               ),
@@ -661,15 +677,18 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                   const Icon(
                                                     Icons.tag_rounded,
                                                     size: 14,
-                                                    color: AnamelColors.sageDark,
+                                                    color:
+                                                        AnamelColors.sageDark,
                                                   ),
                                                   const SizedBox(width: 3),
                                                   Text(
                                                     sale.invoiceNumber,
                                                     style: const TextStyle(
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w800,
-                                                      color: AnamelColors.sageDark,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color:
+                                                          AnamelColors.sageDark,
                                                     ),
                                                   ),
                                                 ],
@@ -684,7 +703,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  _formatDateTime(sale.createdAt),
+                                                  _formatDateTime(
+                                                      sale.createdAt),
                                                   style: const TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w600,
@@ -694,13 +714,15 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                 Row(
                                                   children: [
                                                     Text(
-                                                      sale.customerName?.isNotEmpty ==
+                                                      sale.customerName
+                                                                  ?.isNotEmpty ==
                                                               true
                                                           ? sale.customerName!
                                                           : 'زبون عام',
                                                       style: TextStyle(
                                                         fontSize: 11,
-                                                        color: AnamelColors.brown
+                                                        color: AnamelColors
+                                                            .brown
                                                             .withOpacity(0.7),
                                                       ),
                                                     ),
@@ -708,7 +730,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                       ' • ${sale.accountName}',
                                                       style: TextStyle(
                                                         fontSize: 10,
-                                                        color: AnamelColors.brown
+                                                        color: AnamelColors
+                                                            .brown
                                                             .withOpacity(0.5),
                                                       ),
                                                     ),
@@ -721,7 +744,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
 
                                             // Items count chip
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                 horizontal: 8,
                                                 vertical: 3,
                                               ),
@@ -746,7 +770,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                             if (sale.hasDiscount) ...[
                                               const SizedBox(width: 8),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
                                                   horizontal: 6,
                                                   vertical: 2,
                                                 ),
@@ -799,8 +824,10 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                             ),
                                             const SizedBox(width: 6),
                                             _buildActionIconButton(
-                                              icon: Icons.delete_outline_rounded,
-                                              tooltip: 'حذف الفاتورة واسترجاع المخزون',
+                                              icon:
+                                                  Icons.delete_outline_rounded,
+                                              tooltip:
+                                                  'حذف الفاتورة واسترجاع المخزون',
                                               color: Colors.redAccent,
                                               onTap: () => _deleteInvoice(sale),
                                             ),
@@ -808,8 +835,10 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                             IconButton(
                                               icon: Icon(
                                                 isExpanded
-                                                    ? Icons.keyboard_arrow_up_rounded
-                                                    : Icons.keyboard_arrow_down_rounded,
+                                                    ? Icons
+                                                        .keyboard_arrow_up_rounded
+                                                    : Icons
+                                                        .keyboard_arrow_down_rounded,
                                                 color: AnamelColors.brown,
                                               ),
                                               tooltip: isExpanded
@@ -838,7 +867,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                           color: AnamelColors.border,
                                         ),
                                         Container(
-                                          color: AnamelColors.ivory.withOpacity(.5),
+                                          color: AnamelColors.ivory
+                                              .withOpacity(.5),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
                                             vertical: 12,
@@ -860,7 +890,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                     decoration: BoxDecoration(
                                                       border: Border(
                                                         bottom: BorderSide(
-                                                          color: AnamelColors.border,
+                                                          color: AnamelColors
+                                                              .border,
                                                         ),
                                                       ),
                                                     ),
@@ -874,8 +905,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                             fontSize: 11,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color:
-                                                                AnamelColors.brown,
+                                                            color: AnamelColors
+                                                                .brown,
                                                           ),
                                                         ),
                                                       ),
@@ -888,9 +919,11 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               fontWeight:
-                                                                  FontWeight.w700,
-                                                              color: AnamelColors
-                                                                  .brown,
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color:
+                                                                  AnamelColors
+                                                                      .brown,
                                                             ),
                                                           ),
                                                         ),
@@ -904,9 +937,11 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               fontWeight:
-                                                                  FontWeight.w700,
-                                                              color: AnamelColors
-                                                                  .brown,
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color:
+                                                                  AnamelColors
+                                                                      .brown,
                                                             ),
                                                           ),
                                                         ),
@@ -920,9 +955,11 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               fontWeight:
-                                                                  FontWeight.w700,
-                                                              color: AnamelColors
-                                                                  .brown,
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color:
+                                                                  AnamelColors
+                                                                      .brown,
                                                             ),
                                                           ),
                                                         ),
@@ -934,8 +971,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                       children: [
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets.all(
-                                                                  6),
+                                                              const EdgeInsets
+                                                                  .all(6),
                                                           child: Row(
                                                             children: [
                                                               Container(
@@ -943,8 +980,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                                 height: 12,
                                                                 decoration:
                                                                     BoxDecoration(
-                                                                  color: Color(
-                                                                      item.colorValue),
+                                                                  color: Color(item
+                                                                      .colorValue),
                                                                   shape: BoxShape
                                                                       .circle,
                                                                   border: Border
@@ -963,9 +1000,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                                       const TextStyle(
                                                                     fontSize:
                                                                         11,
-                                                                    color:
-                                                                        AnamelColors
-                                                                            .brown,
+                                                                    color: AnamelColors
+                                                                        .brown,
                                                                   ),
                                                                 ),
                                                               ),
@@ -974,8 +1010,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                         ),
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets.all(
-                                                                  6),
+                                                              const EdgeInsets
+                                                                  .all(6),
                                                           child: Center(
                                                             child: Text(
                                                               '${item.quantity}',
@@ -991,8 +1027,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                         ),
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets.all(
-                                                                  6),
+                                                              const EdgeInsets
+                                                                  .all(6),
                                                           child: Center(
                                                             child: Text(
                                                               '${item.unitPrice.round()} دج',
@@ -1005,8 +1041,8 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
                                                         ),
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets.all(
-                                                                  6),
+                                                              const EdgeInsets
+                                                                  .all(6),
                                                           child: Center(
                                                             child: Text(
                                                               '${item.totalPrice.round()} دج',
@@ -1031,7 +1067,9 @@ class _SalesInvoicesListDialogState extends State<SalesInvoicesListDialog> {
 
                                               // Note if any
                                               if (sale.note != null &&
-                                                  sale.note!.trim().isNotEmpty) ...[
+                                                  sale.note!
+                                                      .trim()
+                                                      .isNotEmpty) ...[
                                                 const SizedBox(height: 8),
                                                 Text(
                                                   'ملاحظة: ${sale.note}',

@@ -11,11 +11,12 @@ import 'package:anamel_pos/widgets/shared/product_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../services/receipt_print_service.dart';
+import '../services/print/receipt_print_service.dart';
 import '../widgets/dialogs/sales_widgets/category_filter_dialog.dart';
 import '../widgets/dialogs/sales_widgets/price_filter_dialog.dart';
 import '../widgets/dialogs/sales_widgets/receipt_paper_size_dialog.dart';
 import '../widgets/dialogs/sales_widgets/receipt_print_confirm_dialog.dart';
+import '../widgets/dialogs/sales_widgets/variant_filter_dialog.dart';
 import '../widgets/dialogs/sales_widgets/variant_selection_dialog.dart';
 import '../widgets/sales/cart_panel.dart';
 import '../widgets/sales/category_bar.dart';
@@ -76,6 +77,10 @@ class _SalesScreenState extends State<SalesScreen> {
   // ============================================================
   double? _minPrice;
   double? _maxPrice;
+
+  VariantFilterType? _variantFilterType;
+  double? _variantFilterFrom;
+  double? _variantFilterTo;
 
   void _onSearchChanged(String query) {
     setState(() {
@@ -266,6 +271,25 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
+  bool _matchesVariantFilter(Product product) {
+    final type = _variantFilterType;
+    final filterFrom = _variantFilterFrom;
+    final filterTo = _variantFilterTo;
+    if (type == null || filterFrom == null || filterTo == null) return true;
+
+    return product.variants.any((variant) {
+      if (!variant.hasConfiguredSize) return false;
+
+      final expectedType = type == VariantFilterType.age
+          ? VariantSizeType.ageMonths
+          : VariantSizeType.numericSize;
+      if (variant.sizeType != expectedType) return false;
+
+      final variantTo = variant.valueTo ?? variant.valueFrom!;
+      return variant.valueFrom! <= filterTo && variantTo >= filterFrom;
+    });
+  }
+
   Future<void> _loadProducts() async {
     if (widget.products != null) {
       final query = _searchQuery.toLowerCase();
@@ -279,7 +303,7 @@ class _SalesScreenState extends State<SalesScreen> {
           }
         }
 
-        return _matchesPrice(product);
+        return _matchesPrice(product) && _matchesVariantFilter(product);
       }).toList();
 
       if (mounted) {
@@ -334,13 +358,16 @@ class _SalesScreenState extends State<SalesScreen> {
         }
       }
 
-      final priceFiltered = (_minPrice == null && _maxPrice == null)
-          ? prods
-          : prods.where(_matchesPrice).toList();
+      final filteredProducts = prods
+          .where(
+            (product) =>
+                _matchesPrice(product) && _matchesVariantFilter(product),
+          )
+          .toList();
 
       if (mounted) {
         setState(() {
-          _products = priceFiltered;
+          _products = filteredProducts;
           _isLoading = false;
         });
       }
@@ -440,6 +467,36 @@ class _SalesScreenState extends State<SalesScreen> {
       _maxPrice = null;
     });
 
+    _loadProducts();
+  }
+
+  Future<void> _openVariantFilterDialog() async {
+    final result = await showDialog<VariantFilterResult>(
+      context: context,
+      builder: (ctx) => VariantFilterDialog(
+        initialType: _variantFilterType,
+        initialValueFrom: _variantFilterFrom,
+        initialValueTo: _variantFilterTo,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _variantFilterType =
+          result.valueFrom == null ? null : result.type;
+      _variantFilterFrom = result.valueFrom;
+      _variantFilterTo = result.valueTo;
+    });
+    _loadProducts();
+  }
+
+  void _clearVariantFilter() {
+    setState(() {
+      _variantFilterType = null;
+      _variantFilterFrom = null;
+      _variantFilterTo = null;
+    });
     _loadProducts();
   }
 
@@ -820,6 +877,11 @@ class _SalesScreenState extends State<SalesScreen> {
                 maxPrice: _maxPrice,
                 onOpenPriceFilter: _openPriceFilterDialog,
                 onClearPriceFilter: _clearPriceFilter,
+                variantFilterSummary: _variantFilterType == null
+                    ? null
+                    : '${_variantFilterType == VariantFilterType.age ? 'العمر بالأشهر' : 'المقاس'}: ${_variantFilterFrom!.toStringAsFixed(_variantFilterFrom == _variantFilterFrom!.roundToDouble() ? 0 : 1)} - ${_variantFilterTo!.toStringAsFixed(_variantFilterTo == _variantFilterTo!.roundToDouble() ? 0 : 1)}',
+                onOpenVariantFilter: _openVariantFilterDialog,
+                onClearVariantFilter: _clearVariantFilter,
               ),
               const SizedBox(height: 15),
               Expanded(
@@ -842,8 +904,10 @@ class _SalesScreenState extends State<SalesScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  (_minPrice != null || _maxPrice != null)
-                                      ? 'لا توجد منتجات تطابق نطاق السعر المحدد'
+                                  (_minPrice != null ||
+                                          _maxPrice != null ||
+                                          _variantFilterType != null)
+                                      ? 'لا توجد منتجات تطابق الفلاتر المحددة'
                                       : 'لا توجد منتجات في هذا التصنيف',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
@@ -868,6 +932,24 @@ class _SalesScreenState extends State<SalesScreen> {
                                     ),
                                   ),
                                 ],
+                                if (_variantFilterType != null) ...[
+                                  const SizedBox(height: 4),
+                                  TextButton.icon(
+                                    onPressed: _clearVariantFilter,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16,
+                                      color: AnamelColors.sageDark,
+                                    ),
+                                    label: const Text(
+                                      'إلغاء فلترة العمر أو المقاس',
+                                      style: TextStyle(
+                                        color: AnamelColors.sageDark,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           )
@@ -882,7 +964,8 @@ class _SalesScreenState extends State<SalesScreen> {
                             itemCount: _products.length,
                             itemBuilder: (_, i) {
                               final product = _products[i];
-                              final inCart = _getCartCountForProduct(product.id);
+                              final inCart =
+                                  _getCartCountForProduct(product.id);
                               return ProductCard(
                                 product: product,
                                 inCartCount: inCart,

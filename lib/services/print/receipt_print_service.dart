@@ -8,7 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../models/sale_model.dart';
+import '../../models/sale_model.dart';
 
 /// مقاسات ورق طباعة الفاتورة المدعومة
 enum ReceiptPaperSize {
@@ -107,6 +107,9 @@ class ReceiptPrintService {
   // ===========================================================================
   static const String defaultWebsiteUrl =
       'https://amir0549.github.io/anamel_links/';
+  static const String phoneNumber = '0794 01 81 77';
+  static const String storeAddress =
+      'فيستيفال سيتي، الطابق الثاني، طريق بسكرة، باتنة';
   static const String defaultPrinterName = 'XPrinter XP-350B';
 
   /// تحميل خط عربي محلي
@@ -427,6 +430,8 @@ class ReceiptPrintService {
     String? websiteUrl,
   }) async {
     final targetUrl = websiteUrl ?? defaultWebsiteUrl;
+    final phone = phoneNumber;
+    final address = storeAddress;
     final fonts = await _loadCairoFonts();
     final logo = await _loadLogo();
 
@@ -454,6 +459,8 @@ class ReceiptPrintService {
       sale: sale,
       paperSize: paperSize,
       websiteUrl: targetUrl,
+      phone: phone,
+      address: address,
       logo: logo,
       isRoll: isRoll,
       isRoll58: isRoll58,
@@ -543,6 +550,8 @@ class ReceiptPrintService {
     required pw.MemoryImage? logo,
     required bool isRoll,
     required bool isRoll58,
+    required String phone,
+    required String address,
   }) {
     final createdAt = sale.createdAt;
     final formattedDate =
@@ -617,7 +626,7 @@ class ReceiptPrintService {
             ),
           ),
           pw.Text(
-            'لأزياء ومستلزمات الأطفال',
+            'لملابس الأطفال',
             style: pw.TextStyle(
               fontSize: subtitleFontSize,
               color: PdfColors.grey700,
@@ -633,7 +642,38 @@ class ReceiptPrintService {
           pw.SizedBox(height: 4),
 
           // ==========================================================
-          // 2. رقم الفاتورة وتاريخها واسم الزبون
+          // 2. بيانات المتجر: رقم الهاتف والعنوان
+          // ==========================================================
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(vertical: 2),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _buildInfoRow(
+                  label: 'رقم الهاتف:',
+                  value: phone,
+                  fontSize: bodyFontSize,
+                ),
+                pw.SizedBox(height: 2),
+                _buildInfoRow(
+                  label: 'العنوان:',
+                  value: address,
+                  fontSize: bodyFontSize,
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Divider(
+            thickness: 0.8,
+            borderStyle: pw.BorderStyle.dashed,
+            color: PdfColors.grey600,
+          ),
+          pw.SizedBox(height: 4),
+
+          // ==========================================================
+          // 3. رقم الفاتورة وتاريخها واسم الزبون
           // ==========================================================
           pw.Container(
             width: double.infinity,
@@ -673,7 +713,7 @@ class ReceiptPrintService {
           pw.SizedBox(height: 4),
 
           // ==========================================================
-          // 3. العناصر المباعة
+          // 4. العناصر المباعة
           // ==========================================================
           pw.Table(
             columnWidths: {
@@ -809,7 +849,7 @@ class ReceiptPrintService {
           pw.SizedBox(height: 4),
 
           // ==========================================================
-          // 4. سطر المجموع الفرعي، الخصم ونسبته، والإجمالي
+          // 5. سطر المجموع الفرعي، الخصم ونسبته، والإجمالي
           // ==========================================================
           pw.Container(
             width: double.infinity,
@@ -901,7 +941,7 @@ class ReceiptPrintService {
           pw.SizedBox(height: 10),
 
           // ==========================================================
-          // 5. رسالة شكر
+          // 6. رسالة شكر
           // ==========================================================
           pw.Text(
             'شكراً لتسوقكم من أنامل!',
@@ -924,7 +964,7 @@ class ReceiptPrintService {
           pw.SizedBox(height: 8),
 
           // ==========================================================
-          // 6. للتواصل معنا وتحتها QR code لرابط الموقع
+          // 7. للتواصل معنا وتحتها QR code لرابط الموقع
           // ==========================================================
           pw.Text(
             'للتواصل معنا',

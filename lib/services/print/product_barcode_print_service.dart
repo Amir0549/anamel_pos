@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:win32/win32.dart';
 
-import '../models/product_model.dart';
+import '../../models/product_model.dart';
 
 enum ProductLabelSize {
   mm40x20,
@@ -257,7 +257,7 @@ class ProductBarcodePrintService {
     // ---------------------------------------------------------------------------
 
     const double sideBarWidth = 52.0;
-    const double dividerLineWidth = 1.5;
+    const double dividerLineWidth = 2;
 
     final double dividerX;
     final double brandCenterX;
@@ -285,7 +285,7 @@ class ProductBarcodePrintService {
       ..strokeWidth = dividerLineWidth
       ..style = PaintingStyle.stroke;
 
-    const double sideMargin = 5.0;
+    const double sideMargin = -20.0;
 
     canvas.drawLine(
       Offset(dividerX, sideMargin),
@@ -302,7 +302,7 @@ class ProductBarcodePrintService {
         text: brandName,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w900,
           color: Colors.black,
         ),
@@ -358,7 +358,7 @@ class ProductBarcodePrintService {
         text: priceText,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 23,
+          fontSize: 27,
           fontWeight: FontWeight.w900,
           color: Colors.black,
         ),

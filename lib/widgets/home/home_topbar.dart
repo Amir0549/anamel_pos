@@ -1,10 +1,10 @@
 import 'package:anamel_pos/models/update_model.dart';
 import 'package:anamel_pos/models/user_model.dart';
-import 'package:anamel_pos/services/update_service.dart';
+import 'package:anamel_pos/services/update/update_service.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:anamel_pos/services/update_installer_service.dart';
+import 'package:anamel_pos/services/update/update_installer_service.dart';
 
 class HomeTopBar extends StatefulWidget {
   final UserModel? currentUser;

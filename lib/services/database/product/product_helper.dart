@@ -12,7 +12,7 @@ class AnamelDatabase {
   static const String _databaseName = 'anamel.db';
 
   /// يجب رفع هذا الرقم عند أي تغيير مستقبلي في بنية قاعدة البيانات.
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 3;
 
   Database? _database;
 
@@ -151,6 +151,9 @@ class AnamelDatabase {
         product_id INTEGER NOT NULL,
 
         age TEXT NOT NULL,
+        size_type TEXT,
+        value_from REAL,
+        value_to REAL,
 
         sale_price REAL NOT NULL DEFAULT 0 CHECK(sale_price >= 0),
         purchase_price REAL NOT NULL DEFAULT 0 CHECK(purchase_price >= 0),
@@ -244,12 +247,34 @@ class AnamelDatabase {
     // -------------------------------------------------------------------------
     // VERSION 3
     //
-    // مثال مستقبلي:
-    //
-    // if (oldVersion < 3) {
-    //   await db.execute('ALTER TABLE categories ADD COLUMN image TEXT;');
-    // }
+    // إضافة بيانات القياس الاختيارية للمتغيرات.
+    // لا يتم افتراض أي قيم للمنتجات القديمة.
     // -------------------------------------------------------------------------
+
+    if (oldVersion < 3) {
+      await _addColumnIfMissing(db, 'product_variants', 'size_type', 'TEXT');
+      await _addColumnIfMissing(db, 'product_variants', 'value_from', 'REAL');
+      await _addColumnIfMissing(db, 'product_variants', 'value_to', 'REAL');
+
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_product_variants_size_range
+        ON product_variants(size_type, value_from, value_to);
+      ''');
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table);');
+    if (columns.any((entry) => entry['name'] == column)) {
+      return;
+    }
+
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $type;');
   }
 
   // ===========================================================================
@@ -295,6 +320,11 @@ class AnamelDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_variant_colors_name
       ON product_variant_colors(color_name);
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_product_variants_size_range
+      ON product_variants(size_type, value_from, value_to);
     ''');
   }
 

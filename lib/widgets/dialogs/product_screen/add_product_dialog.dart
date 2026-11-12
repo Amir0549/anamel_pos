@@ -84,8 +84,11 @@ class _VariantItemModel {
   final TextEditingController ageController;
   final TextEditingController purchasePriceController;
   final TextEditingController salePriceController;
+  final TextEditingController valueFromController;
+  final TextEditingController valueToController;
   final List<_ColorItemModel> colors;
   bool isExpanded;
+  VariantSizeType? sizeType;
 
   _VariantItemModel({
     this.originalId = 0,
@@ -94,9 +97,14 @@ class _VariantItemModel {
     String salePrice = '',
     List<_ColorItemModel>? colors,
     this.isExpanded = true,
+    this.sizeType,
+    String valueFrom = '',
+    String valueTo = '',
   })  : ageController = TextEditingController(text: age),
         purchasePriceController = TextEditingController(text: purchasePrice),
         salePriceController = TextEditingController(text: salePrice),
+        valueFromController = TextEditingController(text: valueFrom),
+        valueToController = TextEditingController(text: valueTo),
         colors = colors ??
             [
               _ColorItemModel(name: 'أبيض', colorValue: 0xFFFFFFFF, stock: '1'),
@@ -106,6 +114,8 @@ class _VariantItemModel {
     ageController.dispose();
     purchasePriceController.dispose();
     salePriceController.dispose();
+    valueFromController.dispose();
+    valueToController.dispose();
     for (final color in colors) {
       color.dispose();
     }
@@ -206,6 +216,13 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 )
                 .toList(),
             isExpanded: false,
+            sizeType: v.sizeType,
+            valueFrom: v.valueFrom != null
+                ? _formatSizeValue(v.valueFrom!)
+                : '',
+            valueTo: v.valueTo != null
+                ? _formatSizeValue(v.valueTo!)
+                : '',
           ),
         );
       }
@@ -228,6 +245,13 @@ class _AddProductDialogState extends State<AddProductDialog> {
                 )
                 .toList(),
             isExpanded: false,
+            sizeType: variant.sizeType,
+            valueFrom: variant.valueFrom != null
+                ? _formatSizeValue(variant.valueFrom!)
+                : '',
+            valueTo: variant.valueTo != null
+                ? _formatSizeValue(variant.valueTo!)
+                : '',
           ),
         );
       }
@@ -710,6 +734,13 @@ class _AddProductDialogState extends State<AddProductDialog> {
             purchasePrice:
                 double.tryParse(v.purchasePriceController.text.trim()) ?? 0.0,
             colors: colors,
+            sizeType: v.sizeType,
+            valueFrom: v.sizeType != null
+                ? double.tryParse(v.valueFromController.text.trim())
+                : null,
+            valueTo: v.sizeType != null
+                ? double.tryParse(v.valueToController.text.trim())
+                : null,
           ),
         );
       }
@@ -750,6 +781,14 @@ class _AddProductDialogState extends State<AddProductDialog> {
         });
       }
     }
+  }
+
+  /// تحويل قيمة عشرية إلى نص: إذا كانت بلا كسر يُعرض كعدد صحيح
+  String _formatSizeValue(double value) {
+    if (value == value.truncateToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toString();
   }
 
   @override
@@ -1700,6 +1739,11 @@ class _AddProductDialogState extends State<AddProductDialog> {
                     ],
                   ),
 
+                  const SizedBox(height: 14),
+
+                  // قسم بيانات القياس الرقمي (اختياري)
+                  _buildSizeDataSection(variant),
+
                   const SizedBox(height: 18),
 
                   // Colors sub-section
@@ -1771,12 +1815,344 @@ class _AddProductDialogState extends State<AddProductDialog> {
   }
 
   // ===========================================================================
+  // SIZE DATA SECTION (قياس الأعمار بالأشهر أو الرقمي)
+  // ===========================================================================
+
+  Widget _buildSizeDataSection(_VariantItemModel variant) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AnamelColors.ivory.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AnamelColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header مع toggle لتفعيل/تعطيل
+          Row(
+            children: [
+              const Icon(
+                Icons.straighten_rounded,
+                size: 17,
+                color: AnamelColors.sageDark,
+              ),
+              const SizedBox(width: 7),
+              const Text(
+                'بيانات القياس الرقمي',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AnamelColors.brown,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AnamelColors.sage.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'اختياري',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: AnamelColors.sageDark,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // زر تفعيل / تعطيل القياس الرقمي
+              if (variant.sizeType != null)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      variant.sizeType = null;
+                      variant.valueFromController.clear();
+                      variant.valueToController.clear();
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 15),
+                  label: const Text(
+                    'إلغاء',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+
+          if (variant.sizeType == null) ...[
+            const SizedBox(height: 10),
+            // أزرار اختيار نوع القياس
+            Row(
+              children: [
+                _buildSizeTypeButton(
+                  label: 'بالأشهر',
+                  icon: Icons.baby_changing_station_rounded,
+                  onTap: () {
+                    setState(() {
+                      variant.sizeType = VariantSizeType.ageMonths;
+                      variant.valueFromController.clear();
+                      variant.valueToController.clear();
+                    });
+                  },
+                ),
+                const SizedBox(width: 10),
+                _buildSizeTypeButton(
+                  label: 'رقمي (سم/حجم)',
+                  icon: Icons.format_list_numbered_rounded,
+                  onTap: () {
+                    setState(() {
+                      variant.sizeType = VariantSizeType.numericSize;
+                      variant.valueFromController.clear();
+                      variant.valueToController.clear();
+                    });
+                  },
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            // نوع القياس المختار
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AnamelColors.sageDark.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: AnamelColors.sageDark.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        variant.sizeType == VariantSizeType.ageMonths
+                            ? Icons.baby_changing_station_rounded
+                            : Icons.format_list_numbered_rounded,
+                        size: 14,
+                        color: AnamelColors.sageDark,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        variant.sizeType == VariantSizeType.ageMonths
+                            ? 'بالأشهر'
+                            : 'رقمي',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AnamelColors.sageDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // من
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        variant.sizeType == VariantSizeType.ageMonths
+                            ? 'من (شهر)'
+                            : 'من',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AnamelColors.brown,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _buildSizeValueField(
+                        controller: variant.valueFromController,
+                        hint: variant.sizeType == VariantSizeType.ageMonths
+                            ? 'مثال: 0'
+                            : 'مثال: 50',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Padding(
+                  padding: EdgeInsets.only(top: 18),
+                  child: Text(
+                    '—',
+                    style: TextStyle(color: AnamelColors.brown),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // إلى
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        variant.sizeType == VariantSizeType.ageMonths
+                            ? 'إلى (شهر)'
+                            : 'إلى',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AnamelColors.brown,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _buildSizeValueField(
+                        controller: variant.valueToController,
+                        hint: variant.sizeType == VariantSizeType.ageMonths
+                            ? 'مثال: 3'
+                            : 'مثال: 60',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (variant.sizeType == VariantSizeType.ageMonths) ...[
+              const SizedBox(height: 10),
+              // اختصارات الأشهر الشائعة
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _buildMonthRangeChip('0–3 أشهر', 0, 3, variant),
+                  _buildMonthRangeChip('3–6 أشهر', 3, 6, variant),
+                  _buildMonthRangeChip('6–9 أشهر', 6, 9, variant),
+                  _buildMonthRangeChip('9–12 شهر', 9, 12, variant),
+                  _buildMonthRangeChip('12–18 شهر', 12, 18, variant),
+                  _buildMonthRangeChip('18–24 شهر', 18, 24, variant),
+                ],
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSizeTypeButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AnamelColors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AnamelColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: AnamelColors.sageDark),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AnamelColors.brown,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSizeValueField({
+    required TextEditingController controller,
+    required String hint,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType:
+          const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      onChanged: (_) => setState(() {}),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: AnamelColors.brown,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle:
+            const TextStyle(fontSize: 12, color: AnamelColors.brown),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        isDense: true,
+        filled: true,
+        fillColor: AnamelColors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AnamelColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide:
+              const BorderSide(color: AnamelColors.sageDark, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthRangeChip(
+    String label,
+    int from,
+    int to,
+    _VariantItemModel variant,
+  ) {
+    final isSelected = variant.valueFromController.text == from.toString() &&
+        variant.valueToController.text == to.toString();
+
+    return ActionChip(
+      label: Text(label),
+      backgroundColor:
+          isSelected ? AnamelColors.sage.withValues(alpha: 0.2) : AnamelColors.white,
+      side: BorderSide(
+        color: isSelected ? AnamelColors.sageDark : AnamelColors.border,
+      ),
+      labelStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+        color: isSelected ? AnamelColors.sageDark : AnamelColors.brown,
+      ),
+      onPressed: () {
+        setState(() {
+          variant.valueFromController.text = from.toString();
+          variant.valueToController.text = to.toString();
+        });
+      },
+    );
+  }
+
+  // ===========================================================================
   // COLOR ROW & PICKER COMPONENT
   // ===========================================================================
 
   Widget _buildColorRow(int vIndex, int cIndex) {
     final colorItem = _variants[vIndex].colors[cIndex];
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

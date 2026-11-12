@@ -1,5 +1,5 @@
 import 'package:anamel_pos/models/product_model.dart';
-import 'package:anamel_pos/services/product_barcode_print_service.dart';
+import 'package:anamel_pos/services/print/product_barcode_print_service.dart';
 import 'package:anamel_pos/services/database/product/product_dao.dart';
 import 'package:anamel_pos/widgets/anamel_colors.dart';
 import 'package:anamel_pos/widgets/dialogs/product_screen/add_product_dialog.dart';

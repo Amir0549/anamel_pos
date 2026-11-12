@@ -1,35 +1,40 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 
-/// المنتج الرئيسي
-///
-/// مثال:
-/// بدلة قطنية
-/// ├── 1-2 سنة
-/// │   ├── أبيض: 3
-/// │   ├── وردي: 2
-/// │   └── أزرق: 4
-/// ├── 2-4 سنوات
-/// │   ├── أبيض: 5
-/// │   ├── وردي: 3
-/// │   └── أزرق: 2
-/// └── 4-6 سنوات
-///     ├── أبيض: 1
-///     ├── وردي: 0
-///     └── أزرق: 3
+enum VariantSizeType {
+  ageMonths,
+  numericSize;
+
+  String get databaseValue {
+    switch (this) {
+      case VariantSizeType.ageMonths:
+        return 'age_months';
+      case VariantSizeType.numericSize:
+        return 'numeric_size';
+    }
+  }
+
+  static VariantSizeType? fromDatabase(String? value) {
+    switch (value) {
+      case 'age_months':
+        return VariantSizeType.ageMonths;
+      case 'numeric_size':
+        return VariantSizeType.numericSize;
+      default:
+        return null;
+    }
+  }
+}
+
 class Product {
   final int id;
   final String name;
   final String barcode;
   final List<int> categoryIDs;
-
   final String image1;
   final String image2;
   final String image3;
   final String image4;
-
-  /// كل عمر يعتبر Variant مستقلاً
   final List<ProductVariant> variants;
 
   const Product({
@@ -44,28 +49,19 @@ class Product {
     required this.variants,
   });
 
-  /// إجمالي مخزون المنتج بكل الأعمار والألوان
-  int get totalStock {
-    return variants.fold(
-      0,
-      (total, variant) => total + variant.totalStock,
-    );
-  }
+  int get totalStock =>
+      variants.fold(0, (total, variant) => total + variant.totalStock);
 
-  /// سعر البيع المبدئي (أدنى سعر بيع بين الأعمار/المقاسات أو 0)
   double get salePrice {
     if (variants.isEmpty) return 0.0;
     return variants.map((v) => v.salePrice).reduce((a, b) => a < b ? a : b);
   }
 
-  /// مسمى بديل لتفادي أخطاء التسمية
   double get saleprice => salePrice;
   double get totalPrice => salePrice;
 
-  /// قائمة المقاسات / الأعمار المتوفرة
   List<String> get size => variants.map((v) => v.age).toList();
 
-  /// توليد باركود تلقائي للمنتج (مثال: 6 481920 037154)
   static String generateBarcode() {
     final random = Random();
     final firstBlock = random.nextInt(1000000).toString().padLeft(6, '0');
@@ -98,20 +94,24 @@ class Product {
   }
 }
 
-/// تفاصيل المنتج حسب العمر
-///
-/// السعر مرتبط بالعمر وليس باللون.
 class ProductVariant {
   final int id;
 
-  /// مثال: 1-2 سنة / 2-4 سنوات / 4-6 سنوات
+  /// الاسم النصي الظاهر للمستخدم، مثل: 1-2 سنة.
   final String age;
 
   final double salePrice;
   final double purchasePrice;
-
-  /// الألوان والمخزون الخاص بهذا العمر
   final List<ColorStock> colors;
+
+  /// نوع القياس، اختياري.
+  final VariantSizeType? sizeType;
+
+  /// بداية النطاق أو القيمة الوحيدة، اختياري.
+  final double? valueFrom;
+
+  /// نهاية النطاق، وتبقى null عند استخدام قيمة واحدة.
+  final double? valueTo;
 
   const ProductVariant({
     required this.id,
@@ -119,14 +119,27 @@ class ProductVariant {
     required this.salePrice,
     required this.purchasePrice,
     required this.colors,
+    this.sizeType,
+    this.valueFrom,
+    this.valueTo,
   });
 
-  /// إجمالي مخزون هذا العمر بكل ألوانه
-  int get totalStock {
-    return colors.fold(
-      0,
-      (total, color) => total + color.stock,
-    );
+  int get totalStock => colors.fold(0, (total, color) => total + color.stock);
+
+  /// هل تم إعداد بيانات القياس الرقمية بشكل كامل؟
+  bool get hasConfiguredSize => sizeType != null && valueFrom != null;
+
+  /// التحقق من أن قيمة معينة تقع ضمن قياس هذا المتغير.
+  /// لا يطابق المتغيرات التي لم تُحدد لها بيانات قياس.
+  bool matchesSizeValue(
+    VariantSizeType type,
+    double value,
+  ) {
+    if (!hasConfiguredSize || sizeType != type) {
+      return false;
+    }
+
+    return value >= valueFrom! && (valueTo == null || value <= valueTo!);
   }
 
   ProductVariant copyWith({
@@ -135,6 +148,10 @@ class ProductVariant {
     double? salePrice,
     double? purchasePrice,
     List<ColorStock>? colors,
+    VariantSizeType? sizeType,
+    double? valueFrom,
+    double? valueTo,
+    bool clearSizeData = false,
   }) {
     return ProductVariant(
       id: id ?? this.id,
@@ -142,26 +159,17 @@ class ProductVariant {
       salePrice: salePrice ?? this.salePrice,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       colors: colors ?? this.colors,
+      sizeType: clearSizeData ? null : (sizeType ?? this.sizeType),
+      valueFrom: clearSizeData ? null : (valueFrom ?? this.valueFrom),
+      valueTo: clearSizeData ? null : (valueTo ?? this.valueTo),
     );
   }
 }
 
-/// مخزون لون معين داخل عمر معين
 class ColorStock {
   final int id;
-
-  /// اسم اللون الذي سيظهر للمستخدم
-  /// مثال: أبيض، وردي، أزرق
   final String colorName;
-
-  /// قيمة اللون بصيغة ARGB
-  ///
-  /// مثال:
-  /// 0xFFFFFFFF = أبيض
-  /// 0xFFFFC0CB = وردي
   final int colorValue;
-
-  /// الكمية الموجودة من هذا اللون لهذا العمر
   final int stock;
 
   const ColorStock({
@@ -171,7 +179,6 @@ class ColorStock {
     required this.stock,
   });
 
-  /// تحويل القيمة المخزنة إلى Color لواجهة Flutter
   Color get color => Color(colorValue);
 
   ColorStock copyWith({
